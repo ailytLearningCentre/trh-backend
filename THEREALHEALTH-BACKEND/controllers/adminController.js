@@ -127,14 +127,28 @@ exports.getUserHealthConditions = async (req, res) => {
 
 exports.updateAppointmentStatus = async (req, res) => {
   try {
-    const updated = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      { status: req.body.status },
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    if (!["pending", "approved", "canceled"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    // Update the appointment status
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
+      id,
+      { status },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: "Appointment not found" });
-    res.status(200).json({ message: "Status updated", appointment: updated });
+
+    if (!updatedAppointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    res.status(200).json({ message: "Appointment status updated", appointment: updatedAppointment });
   } catch (error) {
-    res.status(500).json({ message: "Error updating status", error: error.message });
+    console.error("Error updating appointment:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

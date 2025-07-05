@@ -43,7 +43,7 @@ exports.verifyOtp = async (req, res) => {
 
     const isAdmin = await Admin.findById(phone);
     if (isAdmin) {
-      const token = jwt.sign({ phone, role: "admin" }, JWT_SECRET, { expiresIn: "1h" });
+      const token = jwt.sign({ phone, role: "admin" }, JWT_SECRET, { expiresIn: "30d" });
       return res.json({ message: "Admin logged in", token, role: "admin" });
     }
 
@@ -55,11 +55,25 @@ exports.verifyOtp = async (req, res) => {
         await user.save(); // Save the user to the database
     }
 
-    const token = jwt.sign({ phone, role: "user" }, JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ phone, role: "user" }, JWT_SECRET, { expiresIn: "30d" });
     res.json({ message: isNewUser ? "New user created" : "User exists", token, role: "user", isNewUser });
   } catch (error) {
     console.error("❌ Error verifying OTP:", error.message);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
+};
+
+exports.resendOtp = async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) {
+        return res.status(400).json({ message: "Phone number is required" });
+    }
+    try {
+        await sendOTP(phone); // Reuse your existing sendOTP utility
+        res.json({ message: "OTP resent successfully" });
+    } catch (error) {
+        console.error("Error resending OTP:", error.message);
+        res.status(500).json({ message: "Error resending OTP", error: error.message });
+    }
 };
 
