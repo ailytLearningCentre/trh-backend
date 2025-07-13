@@ -97,12 +97,21 @@ exports.updateUser = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    const deleted = await User.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "User not found" });
-    await Appointment.deleteMany({ _id: req.params.id });
-    res.status(200).json({ message: "User and appointments deleted" });
+    const userId = req.params.id;
+    console.log("🔥 Trying to delete user with ID:", userId);
+
+    const deleted = await User.findByIdAndDelete(userId);
+
+    if (!deleted) {
+      console.warn("❌ User not found for ID:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await Appointment.deleteMany({ userId }); // Deletes all appointments for this user
+    res.status(200).json({ message: "✅ User and appointments deleted" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting user", error: error.message });
+    console.error("❌ Error deleting user:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

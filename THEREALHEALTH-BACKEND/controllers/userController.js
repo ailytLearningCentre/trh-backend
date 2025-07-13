@@ -5,11 +5,11 @@ const Consultation = require("../models/Consultation");
 exports.submitForm = async (req, res) => {
   try {
     const phone = req.user.phone;
-    const { name, age, weight, height, alternativePhoneNumber } = req.body;
+    const { name, age, gender, weight, height, alternativePhoneNumber } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       phone,
-      { name, age, weight, height: { value: height }, alternativePhoneNumber },
+      { name, age, gender, weight, height: { value: height }, alternativePhoneNumber },
       { new: true, upsert: true }
     );
 

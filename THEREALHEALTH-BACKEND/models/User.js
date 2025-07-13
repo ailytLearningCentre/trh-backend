@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema({
   _id: String, // Phone number
   name: String,
   age: Number,
+  gender: {
+  type: String,
+  enum: ['Male', 'Female', 'Other'],
+  required: false, // make true if always required
+},
   weight: Number,
   height: { value: Number },
   alternativePhoneNumber: { type: String, unique: true, sparse: true },
