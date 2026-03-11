@@ -1,5 +1,9 @@
 const twilio = require("twilio");
-
+console.log("TWILIO CHECK", {
+  hasSid: !!process.env.TWILIO_ACCOUNT_SID,
+  hasToken: !!process.env.TWILIO_AUTH_TOKEN,
+  hasPhone: !!process.env.TWILIO_PHONE_NUMBER,
+});
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
