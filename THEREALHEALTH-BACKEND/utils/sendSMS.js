@@ -1,9 +1,5 @@
 const twilio = require("twilio");
-console.log("TWILIO CHECK", {
-  hasSid: !!process.env.TWILIO_ACCOUNT_SID,
-  hasToken: !!process.env.TWILIO_AUTH_TOKEN,
-  hasPhone: !!process.env.TWILIO_PHONE_NUMBER,
-});
+
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
@@ -13,7 +9,7 @@ const sendSMS = async (to, body) => {
         await client.messages.create({
             body,
             from: twilioPhoneNumber,
-            to: `+91${to}`, // Ensure the phone number format is correct
+            to: to.startsWith("+") ? to : `+91${to}`, // added the line  ensure that the twilio works perfectly 
         });
         console.log("✅ SMS sent successfully");
     } catch (error) {
