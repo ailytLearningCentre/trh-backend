@@ -1,21 +1,30 @@
 const twilio = require("twilio");
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 const sendSMS = async (to, body) => {
-    try {
-        console.log(`Sending SMS to: ${to}, Body: ${body}`);
-        await client.messages.create({
-            body,
-            from: twilioPhoneNumber,
-            to: to.startsWith("+") ? to : `+91${to}`, // added the line  ensure that the twilio works perfectly 
-        });
-        console.log("✅ SMS sent successfully");
-    } catch (error) {
-        console.error("❌ Failed to send SMS:", error.message);
-        throw error;
-    }
+  try {
+
+    const phone = to.startsWith("+") ? to : `+91${to}`;
+
+    const response = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verifications.create({
+        to: phone,
+        channel: "sms"
+      });
+
+    console.log("✅ OTP sent:", response.status);
+
+  } catch (error) {
+
+    console.error("❌ Failed to send SMS:", error.message);
+    throw error;
+
+  }
 };
 
 module.exports = sendSMS;
