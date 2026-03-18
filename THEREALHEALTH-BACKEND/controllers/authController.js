@@ -1,6 +1,6 @@
 const OTP = require("../models/OTP");
 const User = require("../models/User");
-const Admin = require("../models/Admin");
+const Admin = require("../models/admin");
 const jwt = require("jsonwebtoken");
 const { sendOTP } = require("../utils/otp");
 
