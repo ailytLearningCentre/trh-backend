@@ -1,80 +1,98 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const Admin = require("../models/admin");
 const OTP = require("../models/OTP");
-const { generateOTP, sendOTP } = require("../utils/otp");
+const User = require("../models/User");
+const Admin = require("../models/Admin");
+const jwt = require("jsonwebtoken");
+const { sendOTP } = require("../utils/otp");
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 exports.sendOtp = async (req, res) => {
     const { phone } = req.body;
-    console.log("Request received with phone:", phone); // Debugging log
+
     if (!phone) {
-        console.log("Phone number is missing in the request body");
-        return res.status(400).json({ message: "Phone number is required" });
+        return res.status(400).json({ message: "Phone is required" });
     }
 
     try {
-        console.log("Attempting to send OTP...");
-        await sendOTP(phone); // Ensure this function is working correctly
+        await sendOTP(phone);
         console.log("OTP sent successfully");
-        res.json({ message: "OTP sent successfully" });
+        return res.json({ message: "OTP sent successfully" });
     } catch (error) {
-        console.error("Error sending OTP:", error.message); // Debugging log
-        res.status(500).json({ message: "Error sending OTP", error: error.message });
+        console.error("Error sending OTP:", error.message);
+        return res.status(500).json({
+            message: "Error sending OTP",
+            error: error.message
+        });
     }
 };
 
 exports.verifyOtp = async (req, res) => {
-  const { phone, otp } = req.body;
-  if (!phone || !otp) return res.status(400).json({ message: "Phone and OTP are required" });
+    const { phone, otp } = req.body;
 
-  try {
-    const record = await OTP.findOne({ phone }).sort({ createdAt: -1 });
+    console.log("VERIFY BODY:", req.body);
 
-if (!record || record.otp !== otp) {
-  return res.status(401).json({ message: "Invalid or expired OTP" });
-}
-
-
-    // OTP is valid, delete it from the database
-    await OTP.deleteMany({ phone });
-
-    // Log a message in the terminal
-    console.log(`✅ OTP verified successfully for phone: ${phone}`);
-
-    const isAdmin = await Admin.findById(phone);
-    if (isAdmin) {
-      const token = jwt.sign({ phone, role: "admin" }, JWT_SECRET, { expiresIn: "30d" });
-      return res.json({ message: "Admin logged in", token, role: "admin" });
+    if (!phone || !otp) {
+        return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
-    let user = await User.findById(phone);
-    let isNewUser = false;
-    if (!user) {
-        isNewUser = true;
-        user = new User({ _id: phone, name: "New User", role: "user" });
-        await user.save(); // Save the user to the database
-    }
-
-    const token = jwt.sign({ phone, role: "user" }, JWT_SECRET, { expiresIn: "30d" });
-    res.json({ message: isNewUser ? "New user created" : "User exists", token, role: "user", isNewUser });
-  } catch (error) {
-    console.error("❌ Error verifying OTP:", error.message);
-    res.status(500).json({ message: "Internal server error", error: error.message });
-  }
-};
-
-exports.resendOtp = async (req, res) => {
-    const { phone } = req.body;
-    if (!phone) {
-        return res.status(400).json({ message: "Phone number is required" });
-    }
     try {
-        await sendOTP(phone); // Reuse your existing sendOTP utility
-        res.json({ message: "OTP resent successfully" });
+        const record = await OTP.findOne({ phone }).sort({ createdAt: -1 });
+        console.log("LATEST OTP RECORD:", record);
+
+        if (!record || String(record.otp) !== String(otp)) {
+            console.log("OTP MISMATCH => stored:", record?.otp, "received:", otp);
+            return res.status(401).json({ message: "Invalid or expired OTP" });
+        }
+
+        await OTP.deleteMany({ phone });
+
+        console.log(`✅ OTP verified successfully for phone: ${phone}`);
+
+        const isAdmin = await Admin.findById(phone);
+        if (isAdmin) {
+            const token = jwt.sign(
+                { phone, role: "admin" },
+                JWT_SECRET,
+                { expiresIn: "30d" }
+            );
+
+            return res.json({
+                message: "Admin logged in",
+                token,
+                role: "admin"
+            });
+        }
+
+        let user = await User.findById(phone);
+        let isNewUser = false;
+
+        if (!user) {
+            isNewUser = true;
+            user = new User({
+                _id: phone,
+                name: "New User",
+                role: "user"
+            });
+            await user.save();
+        }
+
+        const token = jwt.sign(
+            { phone, role: "user" },
+            JWT_SECRET,
+            { expiresIn: "30d" }
+        );
+
+        return res.json({
+            message: isNewUser ? "New user created" : "User exists",
+            token,
+            role: "user",
+            isNewUser
+        });
     } catch (error) {
-        console.error("Error resending OTP:", error.message);
-        res.status(500).json({ message: "Error resending OTP", error: error.message });
+        console.error("ERROR VERIFYING OTP:", error.message);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message
+        });
     }
 };
-
