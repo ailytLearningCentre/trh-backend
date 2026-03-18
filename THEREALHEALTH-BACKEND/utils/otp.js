@@ -12,11 +12,13 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 const sendOTP = async (phone) => {
     try {
-        const otp = generateOTP(); // Generate a 6-digit OTP
-        console.log(`Generated OTP: ${otp}`); // Debugging log
+       const otp = generateOTP(); // Generate a 6-digit OTP
+         console.log(`Generated OTP: ${otp}`); // Debugging log
 
-        // Use sendSMS to send the OTP
-        await sendSMS(phone, `Your OTP is ${otp}`);
+           await OTP.deleteMany({ phone });
+
+              // Use sendSMS to send the OTP
+          await sendSMS(phone, `Your OTP is ${otp}`);
         console.log("✅ OTP sent successfully");
 
         // Save the OTP in the database

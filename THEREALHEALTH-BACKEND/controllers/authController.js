@@ -29,10 +29,11 @@ exports.verifyOtp = async (req, res) => {
   if (!phone || !otp) return res.status(400).json({ message: "Phone and OTP are required" });
 
   try {
-    const record = await OTP.findOne({ phone });
-    if (!record || record.otp !== otp) {
-      return res.status(401).json({ message: "Invalid or expired OTP" });
-    }
+    const record = await OTP.findOne({ phone }).sort({ createdAt: -1 });
+
+if (!record || record.otp !== otp) {
+  return res.status(401).json({ message: "Invalid or expired OTP" });
+}
 
 
     // OTP is valid, delete it from the database
