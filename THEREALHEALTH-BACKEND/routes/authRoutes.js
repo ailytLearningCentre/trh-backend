@@ -5,5 +5,6 @@ const { sendOtp, verifyOtp } = require("../controllers/authController");
 
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
+router.post("/resend-otp", resendOtp);
 
 module.exports = router;

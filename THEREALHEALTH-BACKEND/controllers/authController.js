@@ -26,6 +26,26 @@ exports.sendOtp = async (req, res) => {
     }
 };
 
+exports.resendOtp = async (req, res) => {
+    const { phone } = req.body;
+
+    if (!phone) {
+        return res.status(400).json({ message: "Phone is required" });
+    }
+
+    try {
+        await sendOTP(phone);
+        console.log("OTP resent successfully");
+        return res.json({ message: "OTP resent successfully" });
+    } catch (error) {
+        console.error("Error resending OTP:", error.message);
+        return res.status(500).json({
+            message: "Error resending OTP",
+            error: error.message
+        });
+    }
+};
+
 exports.verifyOtp = async (req, res) => {
     const { phone, otp } = req.body;
 
@@ -33,8 +53,7 @@ exports.verifyOtp = async (req, res) => {
 
     if (!phone || !otp) {
         return res.status(400).json({ message: "Phone and OTP are required" });
-    }
-
+    } 
     try {
         const record = await OTP.findOne({ phone }).sort({ createdAt: -1 });
         console.log("LATEST OTP RECORD:", record);
