@@ -21,3 +21,5 @@ const sendOTP = async (phone) => {
         throw error;
     }
 };
+
+module.exports = { generateOTP, sendOTP };
