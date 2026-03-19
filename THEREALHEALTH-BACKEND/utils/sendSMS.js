@@ -7,23 +7,18 @@ const client = twilio(
 
 const sendSMS = async (to, body) => {
   try {
-
     const phone = to.startsWith("+") ? to : `+91${to}`;
 
-    const response = await client.verify.v2
-      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verifications.create({
-        to: phone,
-        channel: "sms"
-      });
+    const response = await client.messages.create({
+      body: body,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
 
-    console.log("✅ OTP sent:", response.status);
-
+    console.log("✅ OTP SMS sent:", response.sid);
   } catch (error) {
-
     console.error("❌ Failed to send SMS:", error.message);
     throw error;
-
   }
 };
 
