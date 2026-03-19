@@ -1,25 +1,27 @@
+const OTP = require("../models/OTP");
+const sendSMS = require("./sendSMS");
+
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 const sendOTP = async (phone) => {
-    try {
-        console.log("SEND OTP PHONE:", phone);
+  try {
+    const otp = generateOTP();
 
-        const otp = generateOTP(); // Generate a 6-digit OTP
-        console.log(`Generated OTP: ${otp}`); // Debugging log
+    // Use sendSMS to send the OTP
+    await sendSMS(phone, `Your OTP is ${otp}`);
+    console.log("✅ OTP sent successfully");
 
-        await OTP.deleteMany({ phone });
+    // Save the OTP in the database
+    const otpRecord = new OTP({ phone, otp });
+    await otpRecord.save();
 
-        // Use sendSMS to send the OTP
-        await sendSMS(phone, `Your OTP is ${otp}`);
-        console.log("✅ OTP sent successfully");
-
-        // Save the OTP in the database
-        const otpRecord = new OTP({ phone, otp });
-        await otpRecord.save();
-
-        console.log("SAVED OTP RECORD FOR:", phone, "OTP:", otp);
-    } catch (error) {
-        console.error("❌ Error in sendOTP:", error.message);
-        throw error;
-    }
+    console.log("SAVED OTP RECORD FOR:", phone, "OTP:", otp);
+  } catch (error) {
+    console.error("❌ Error in sendOTP:", error.message);
+    throw error;
+  }
 };
 
 module.exports = { generateOTP, sendOTP };
