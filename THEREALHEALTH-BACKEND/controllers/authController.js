@@ -1,10 +1,15 @@
-const OTP = require("../models/OTP");
 const User = require("../models/User");
 const Admin = require("../models/admin");
 const jwt = require("jsonwebtoken");
+const twilio = require("twilio");
 const { sendOTP } = require("../utils/otp");
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
 
 exports.sendOtp = async (req, res) => {
     const { phone } = req.body;
@@ -47,25 +52,37 @@ exports.resendOtp = async (req, res) => {
 };
 
 exports.verifyOtp = async (req, res) => {
-    const { phone, otp } = req.body;
+    let { phone, otp } = req.body;
 
     console.log("VERIFY BODY:", req.body);
 
     if (!phone || !otp) {
         return res.status(400).json({ message: "Phone and OTP are required" });
-    } 
-    try {
-        const record = await OTP.findOne({ phone }).sort({ createdAt: -1 });
-        console.log("LATEST OTP RECORD:", record);
+    }
 
-        if (!record || String(record.otp) !== String(otp)) {
-            console.log("OTP MISMATCH => stored:", record?.otp, "received:", otp);
+    try {
+        phone = String(phone).trim();
+        otp = String(otp).trim();
+
+        const formattedPhone = phone.startsWith("+") ? phone : `+91${phone}`;
+
+        console.log("VERIFY PHONE:", formattedPhone);
+        console.log("VERIFY OTP:", otp);
+
+        const verificationCheck = await client.verify.v2
+            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+            .verificationChecks.create({
+                to: formattedPhone,
+                code: otp,
+            });
+
+        console.log("TWILIO VERIFY STATUS:", verificationCheck.status);
+
+        if (verificationCheck.status !== "approved") {
             return res.status(401).json({ message: "Invalid or expired OTP" });
         }
 
-        await OTP.deleteMany({ phone });
-
-        console.log(`✅ OTP verified successfully for phone: ${phone}`);
+        console.log(`✅ OTP verified successfully for phone: ${formattedPhone}`);
 
         const isAdmin = await Admin.findById(phone);
         if (isAdmin) {
