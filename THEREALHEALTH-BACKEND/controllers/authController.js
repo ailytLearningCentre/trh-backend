@@ -1,134 +1,183 @@
-const User = require("../models/User");
-const Admin = require("../models/admin");
 const jwt = require("jsonwebtoken");
-const twilio = require("twilio");
-const { sendOTP } = require("../utils/otp");
+const OTP = require("../models/OTP");
+const User = require("../models/User");
+const { sendOTP, normalizePhone } = require("../utils/otp");
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 
-const client = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-
-exports.sendOtp = async (req, res) => {
-    const { phone } = req.body;
-
-    if (!phone) {
-        return res.status(400).json({ message: "Phone is required" });
-    }
-
-    try {
-        await sendOTP(phone);
-        console.log("OTP sent successfully");
-        return res.json({ message: "OTP sent successfully" });
-    } catch (error) {
-        console.error("Error sending OTP:", error.message);
-        return res.status(500).json({
-            message: "Error sending OTP",
-            error: error.message
-        });
-    }
+// ========================================
+// HARD-CODED ROLE NUMBERS
+// Replace these 3 numbers with your real ones
+// ========================================
+const HARDCODED_ROLES = {
+  "8392935164": "admin",
+  "6398911153": "doctor",
+  "7668514566": "user",
 };
 
-exports.resendOtp = async (req, res) => {
-    const { phone } = req.body;
-
-    if (!phone) {
-        return res.status(400).json({ message: "Phone is required" });
-    }
-
-    try {
-        await sendOTP(phone);
-        console.log("OTP resent successfully");
-        return res.json({ message: "OTP resent successfully" });
-    } catch (error) {
-        console.error("Error resending OTP:", error.message);
-        return res.status(500).json({
-            message: "Error resending OTP",
-            error: error.message
-        });
-    }
+// ========================================
+// HELPERS
+// ========================================
+const buildPhoneVariants = (phone) => {
+  const clean = normalizePhone(phone);
+  return [...new Set([clean, `+91${clean}`, `91${clean}`])];
 };
 
-exports.verifyOtp = async (req, res) => {
-    let { phone, otp } = req.body;
+const getHardcodedRole = (phone) => {
+  const clean = normalizePhone(phone);
+  return HARDCODED_ROLES[clean] || null;
+};
 
-    console.log("VERIFY BODY:", req.body);
+const createToken = ({ phone, role }) => {
+  return jwt.sign(
+    {
+      phone,
+      role,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+};
 
-    if (!phone || !otp) {
-        return res.status(400).json({ message: "Phone and OTP are required" });
+// ========================================
+// SEND OTP
+// ========================================
+const sendOtp = async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+
+  if (!phone || phone.length !== 10) {
+    return res.status(400).json({
+      message: "Valid 10-digit phone number is required",
+    });
+  }
+
+  try {
+    await sendOTP(phone);
+
+    return res.status(200).json({
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    console.error("❌ Error sending OTP:", error.message);
+    return res.status(500).json({
+      message: "Error sending OTP",
+      error: error.message,
+    });
+  }
+};
+
+// ========================================
+// VERIFY OTP
+// ========================================
+const verifyOtp = async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+  const otp = String(req.body.otp || "").trim();
+  const requestedRole = String(req.body.requestedRole || "")
+    .trim()
+    .toLowerCase();
+
+  if (!phone || phone.length !== 10 || !otp) {
+    return res.status(400).json({
+      message: "Valid phone and OTP are required",
+    });
+  }
+
+  try {
+    const phoneVariants = buildPhoneVariants(phone);
+
+    // 1) Verify OTP from MongoDB
+    const record = await OTP.findOne({
+      phone: { $in: phoneVariants },
+    }).sort({ createdAt: -1 });
+
+    if (!record || record.otp !== otp) {
+      return res.status(401).json({
+        message: "Invalid or expired OTP",
+      });
     }
 
-    try {
-        phone = String(phone).trim();
-        otp = String(otp).trim();
+    // 2) OTP matched, delete old OTPs for this number
+    await OTP.deleteMany({
+      phone: { $in: phoneVariants },
+    });
 
-        const formattedPhone = phone.startsWith("+") ? phone : `+91${phone}`;
+    // 3) Decide role
+    let role = getHardcodedRole(phone);
+    let isNewUser = false;
 
-        console.log("VERIFY PHONE:", formattedPhone);
-        console.log("VERIFY OTP:", otp);
+    // 4) If not hardcoded, try DB
+    if (!role) {
+      const existingUser = await User.findOne({
+        $or: [
+          { _id: { $in: phoneVariants } },
+          { phone: { $in: phoneVariants } },
+          { phoneNumber: { $in: phoneVariants } },
+        ],
+      });
 
-        const verificationCheck = await client.verify.v2
-            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-            .verificationChecks.create({
-                to: formattedPhone,
-                code: otp,
-            });
-
-        console.log("TWILIO VERIFY STATUS:", verificationCheck.status);
-
-        if (verificationCheck.status !== "approved") {
-            return res.status(401).json({ message: "Invalid or expired OTP" });
-        }
-
-        console.log(`✅ OTP verified successfully for phone: ${formattedPhone}`);
-
-        const isAdmin = await Admin.findById(phone);
-        if (isAdmin) {
-            const token = jwt.sign(
-                { phone, role: "admin" },
-                JWT_SECRET,
-                { expiresIn: "30d" }
-            );
-
-            return res.json({
-                message: "Admin logged in",
-                token,
-                role: "admin"
-            });
-        }
-
-        let user = await User.findById(phone);
-        let isNewUser = false;
-
-        if (!user) {
-            isNewUser = true;
-            user = new User({
-                _id: phone,
-                name: "New User",
-                role: "user"
-            });
-            await user.save();
-        }
-
-        const token = jwt.sign(
-            { phone, role: "user" },
-            JWT_SECRET,
-            { expiresIn: "30d" }
-        );
-
-        return res.json({
-            message: isNewUser ? "New user created" : "User exists",
-            token,
-            role: "user",
-            isNewUser
-        });
-    } catch (error) {
-        console.error("ERROR VERIFYING OTP:", error.message);
-        return res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
+      if (existingUser) {
+        role = String(existingUser.role || "user").toLowerCase();
+        isNewUser = false;
+      } else {
+        role = requestedRole || "user";
+        isNewUser = true;
+      }
     }
+
+    // 5) Protect against wrong role selection from splash
+    if (requestedRole && requestedRole !== role) {
+      return res.status(403).json({
+        message: `This number is not allowed to login as ${requestedRole}`,
+      });
+    }
+
+    // 6) Create JWT token
+    const token = createToken({ phone, role });
+
+    return res.status(200).json({
+      message: "OTP verified successfully",
+      token,
+      role,
+      isNewUser,
+    });
+  } catch (error) {
+    console.error("❌ Error verifying OTP:", error.message);
+    return res.status(500).json({
+      message: "Error verifying OTP",
+      error: error.message,
+    });
+  }
+};
+
+// ========================================
+// RESEND OTP
+// ========================================
+const resendOtp = async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+
+  if (!phone || phone.length !== 10) {
+    return res.status(400).json({
+      message: "Valid 10-digit phone number is required",
+    });
+  }
+
+  try {
+    await sendOTP(phone);
+
+    return res.status(200).json({
+      message: "OTP resent successfully",
+    });
+  } catch (error) {
+    console.error("❌ Error resending OTP:", error.message);
+    return res.status(500).json({
+      message: "Error resending OTP",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  sendOtp,
+  verifyOtp,
+  resendOtp,
 };
