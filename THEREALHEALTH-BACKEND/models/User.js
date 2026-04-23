@@ -1,5 +1,3 @@
-// Placeholder content for User.js
-
 const mongoose = require("mongoose");
 
 const QuestionnaireSchema = new mongoose.Schema({
@@ -17,14 +15,21 @@ const userSchema = new mongoose.Schema({
   name: String,
   age: Number,
   gender: {
-  type: String,
-  enum: ['Male', 'Female', 'Other'],
-  required: false, // make true if always required
-},
+    type: String,
+    enum: ["Male", "Female", "Other"],
+    required: false,
+  },
   weight: Number,
   height: { value: Number },
   alternativePhoneNumber: { type: String, unique: true, sparse: true },
-  role: { type: String, enum: ["user", "admin"], default: "user" },
+
+  // FIXED: added doctor role
+  role: {
+    type: String,
+    enum: ["user", "admin", "doctor"],
+    default: "user",
+  },
+
   healthConditions: [HealthConditionSchema],
   appointments: [{ type: String, ref: "Appointment" }],
 }, { timestamps: true });
