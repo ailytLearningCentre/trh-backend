@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
   weight: Number,
   height: { value: Number },
   alternativePhoneNumber: { type: String, unique: true, sparse: true },
-  role: { type: String, enum: ["user", "admin"], default: "user" },
+  role: { type: String, enum: ["user", "admin", "doctor"], default: "user" },
   healthConditions: [HealthConditionSchema],
   appointments: [{ type: String, ref: "Appointment" }],
 }, { timestamps: true });
