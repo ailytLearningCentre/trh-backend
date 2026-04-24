@@ -135,11 +135,15 @@ const verifyOtp = async (req, res) => {
     const token = createToken({ phone, role });
 
     return res.status(200).json({
-      message: "OTP verified successfully",
-      token,
-      role,
-      isNewUser,
-    });
+  message: "OTP verified successfully",
+  token,
+  role,
+  isNewUser,
+  debugVersion: "ROLE_CHECK_001",
+  debugPhone: phone,
+  debugRequestedRole: requestedRole,
+  debugResolvedRole: role,
+});
   } catch (error) {
     console.error("❌ Error verifying OTP:", error.message);
     return res.status(500).json({
