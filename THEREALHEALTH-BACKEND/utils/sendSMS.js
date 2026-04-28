@@ -2,36 +2,26 @@ const twilio = require("twilio");
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
-if (!accountSid || !authToken || !twilioPhoneNumber) {
-  console.error("❌ Missing Twilio env vars");
-  console.error("TWILIO_ACCOUNT_SID:", accountSid ? "Present" : "Missing");
-  console.error("TWILIO_AUTH_TOKEN:", authToken ? "Present" : "Missing");
-  console.error("TWILIO_PHONE_NUMBER:", twilioPhoneNumber ? "Present" : "Missing");
-}
+const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
 const client = twilio(accountSid, authToken);
 
-const sendSMS = async (to, message) => {
+const sendSMS = async (to) => {
   try {
     const cleanTo = String(to || "").replace(/\D/g, "");
     const phone = cleanTo.startsWith("91") ? `+${cleanTo}` : `+91${cleanTo}`;
 
-    if (!twilioPhoneNumber) {
-      throw new Error("TWILIO_PHONE_NUMBER is missing on the server");
-    }
+    const verification = await client.verify.v2
+      .services(verifyServiceSid)
+      .verifications.create({
+        to: phone,
+        channel: "sms",
+      });
 
-    const sms = await client.messages.create({
-      body: message,
-      from: twilioPhoneNumber,
-      to: phone,
-    });
-
-    console.log("✅ OTP SMS sent:", sms.sid, "to:", phone);
-    return sms;
+    console.log("✅ Twilio Verify OTP sent:", verification.sid, "to:", phone);
+    return verification;
   } catch (error) {
-    console.error("❌ Error sending OTP via Twilio SMS:", error.message);
+    console.error("❌ Error sending OTP via Twilio Verify:", error.message);
     throw error;
   }
 };

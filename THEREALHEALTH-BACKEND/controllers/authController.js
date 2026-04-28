@@ -1,13 +1,18 @@
 const jwt = require("jsonwebtoken");
-const OTP = require("../models/OTP");
+const twilio = require("twilio");
 const User = require("../models/User");
 const { sendOTP, normalizePhone } = require("../utils/otp");
 
 const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+const client = twilio(accountSid, authToken);
+
 // ========================================
 // HARD-CODED ROLE NUMBERS
-// Replace these 3 numbers with your real ones
 // ========================================
 const HARDCODED_ROLES = {
   "8392935164": "admin",
@@ -83,30 +88,27 @@ const verifyOtp = async (req, res) => {
   }
 
   try {
-    const phoneVariants = buildPhoneVariants(phone);
+    const fullPhone = `+91${phone}`;
 
-    // 1) Verify OTP from MongoDB
-    const record = await OTP.findOne({
-      phone: { $in: phoneVariants },
-    }).sort({ createdAt: -1 });
+    const verificationCheck = await client.verify.v2
+      .services(verifyServiceSid)
+      .verificationChecks.create({
+        to: fullPhone,
+        code: otp,
+      });
 
-    if (!record || record.otp !== otp) {
+    if (verificationCheck.status !== "approved") {
       return res.status(401).json({
         message: "Invalid or expired OTP",
       });
     }
 
-    // 2) OTP matched, delete old OTPs for this number
-    await OTP.deleteMany({
-      phone: { $in: phoneVariants },
-    });
-
-    // 3) Decide role
     let role = getHardcodedRole(phone);
     let isNewUser = false;
 
-    // 4) If not hardcoded, try DB
     if (!role) {
+      const phoneVariants = buildPhoneVariants(phone);
+
       const existingUser = await User.findOne({
         $or: [
           { _id: { $in: phoneVariants } },
@@ -124,26 +126,20 @@ const verifyOtp = async (req, res) => {
       }
     }
 
-    // 5) Protect against wrong role selection from splash
     if (requestedRole && requestedRole !== role) {
       return res.status(403).json({
         message: `This number is not allowed to login as ${requestedRole}`,
       });
     }
 
-    // 6) Create JWT token
     const token = createToken({ phone, role });
 
     return res.status(200).json({
-  message: "OTP verified successfully",
-  token,
-  role,
-  isNewUser,
-  debugVersion: "ROLE_CHECK_001",
-  debugPhone: phone,
-  debugRequestedRole: requestedRole,
-  debugResolvedRole: role,
-});
+      message: "OTP verified successfully",
+      token,
+      role,
+      isNewUser,
+    });
   } catch (error) {
     console.error("❌ Error verifying OTP:", error.message);
     return res.status(500).json({
