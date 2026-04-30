@@ -77,9 +77,6 @@ const sendOtp = async (req, res) => {
 const verifyOtp = async (req, res) => {
   const phone = normalizePhone(req.body.phone);
   const otp = String(req.body.otp || "").trim();
-  const requestedRole = String(req.body.requestedRole || "")
-    .trim()
-    .toLowerCase();
 
   if (!phone || phone.length !== 10 || !otp) {
     return res.status(400).json({
@@ -121,15 +118,9 @@ const verifyOtp = async (req, res) => {
         role = String(existingUser.role || "user").toLowerCase();
         isNewUser = false;
       } else {
-        role = requestedRole || "user";
+        role = "user";
         isNewUser = true;
       }
-    }
-
-    if (requestedRole && requestedRole !== role) {
-      return res.status(403).json({
-        message: `This number is not allowed to login as ${requestedRole}`,
-      });
     }
 
     const token = createToken({ phone, role });
