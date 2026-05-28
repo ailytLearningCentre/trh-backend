@@ -1,23 +1,16 @@
 const jwt = require("jsonwebtoken");
-const twilio = require("twilio");
 const User = require("../models/User");
-const { sendOTP, normalizePhone } = require("../utils/otp");
+const { sendOTP, normalizePhone, verifyStoredOTP } = require("../utils/otp");
 
 const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-
-const client = twilio(accountSid, authToken);
 
 // ========================================
 // HARD-CODED ROLE NUMBERS
 // ========================================
 const HARDCODED_ROLES = {
   "8392935164": "admin",
-  "6398911153": "doctor",
-  "7668514566": "user",
+  "7668514566": "doctor",
+  "6398911153": "user",
 };
 
 // ========================================
@@ -35,10 +28,7 @@ const getHardcodedRole = (phone) => {
 
 const createToken = ({ phone, role }) => {
   return jwt.sign(
-    {
-      phone,
-      role,
-    },
+    { phone, role },
     JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -85,24 +75,19 @@ const verifyOtp = async (req, res) => {
   }
 
   try {
-    const fullPhone = `+91${phone}`;
+    const otpResult = await verifyStoredOTP(phone, otp);
 
-    const verificationCheck = await client.verify.v2
-      .services(verifyServiceSid)
-      .verificationChecks.create({
-        to: fullPhone,
-        code: otp,
-      });
-
-    if (verificationCheck.status !== "approved") {
+    if (!otpResult.ok) {
       return res.status(401).json({
-        message: "Invalid or expired OTP",
+        message: otpResult.message,
       });
     }
 
+    // 1) FIRST PRIORITY = hardcoded role
     let role = getHardcodedRole(phone);
     let isNewUser = false;
 
+    // 2) If not hardcoded, then check DB
     if (!role) {
       const phoneVariants = buildPhoneVariants(phone);
 
@@ -111,6 +96,7 @@ const verifyOtp = async (req, res) => {
           { _id: { $in: phoneVariants } },
           { phone: { $in: phoneVariants } },
           { phoneNumber: { $in: phoneVariants } },
+          { alternativePhoneNumber: { $in: phoneVariants } },
         ],
       });
 
@@ -130,6 +116,7 @@ const verifyOtp = async (req, res) => {
       token,
       role,
       isNewUser,
+      phone,
     });
   } catch (error) {
     console.error("❌ Error verifying OTP:", error.message);
