@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 // HARD-CODED ROLE NUMBERS
 // ========================================
 const HARDCODED_ROLES = {
-  "8392935164": "admin",
+  "8392935164": "user",
   "7668514566": "user",
 };
 
@@ -85,9 +85,9 @@ const verifyOtp = async (req, res) => {
     let role = getHardcodedRole(phone);
     let isNewUser = false;
 
-    const phoneVariants = buildPhoneVariants(phone);
-
     if (!role) {
+      const phoneVariants = buildPhoneVariants(phone);
+
       const existingUser = await User.findOne({
         $or: [
           { _id: { $in: phoneVariants } },
