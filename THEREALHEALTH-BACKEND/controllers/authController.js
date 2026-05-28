@@ -9,8 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 // ========================================
 const HARDCODED_ROLES = {
   "8392935164": "admin",
-  "7668514566": "doctor",
-  "6398911153": "user",
+  "7668514566": "user",
 };
 
 // ========================================
@@ -83,14 +82,12 @@ const verifyOtp = async (req, res) => {
       });
     }
 
-    // 1) FIRST PRIORITY = hardcoded role
     let role = getHardcodedRole(phone);
     let isNewUser = false;
 
-    // 2) If not hardcoded, then check DB
-    if (!role) {
-      const phoneVariants = buildPhoneVariants(phone);
+    const phoneVariants = buildPhoneVariants(phone);
 
+    if (!role) {
       const existingUser = await User.findOne({
         $or: [
           { _id: { $in: phoneVariants } },
