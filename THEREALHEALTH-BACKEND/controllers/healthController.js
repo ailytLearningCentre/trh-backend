@@ -3,42 +3,60 @@ const User = require("../models/User");
 
 const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 
+const getUserFromToken = async (req) => {
+  const authHeader = req.headers.authorization || "";
+
+  if (!authHeader.startsWith("Bearer ")) {
+    throw new Error("Authorization token missing or invalid");
+  }
+
+  const token = authHeader.split(" ")[1];
+  const decoded = jwt.verify(token, JWT_SECRET);
+  const userId = String(decoded.phone || "").trim();
+
+  if (!userId) {
+    throw new Error("User phone not found in token");
+  }
+
+  let user = await User.findById(userId);
+
+  if (!user) {
+    user = await User.findOne({
+      $or: [
+        { phone: userId },
+        { phoneNumber: userId },
+        { alternativePhoneNumber: userId },
+      ],
+    });
+  }
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  return user;
+};
+
 const submitHealthData = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization || "";
+    let user;
 
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        message: "Authorization token missing or invalid",
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      user = await getUserFromToken(req);
     } catch (err) {
-      return res.status(401).json({
-        message: "Invalid or expired token",
-      });
+      const msg = err.message || "Unauthorized";
+      const code =
+          msg === "User not found"
+              ? 404
+              : msg === "Authorization token missing or invalid" ||
+                msg === "Invalid or expired token"
+              ? 401
+              : 400;
+
+      return res.status(code).json({ message: msg });
     }
 
-    const userId = String(decoded.phone || "").trim();
-
-    if (!userId) {
-      return res.status(400).json({
-        message: "User phone not found in token",
-      });
-    }
-
-    const { selectedCondition, questionnaireResponses } = req.body;
-
-    if (!selectedCondition || typeof selectedCondition !== "string") {
-      return res.status(400).json({
-        message: "selectedCondition is required",
-      });
-    }
+    const { questionnaireResponses } = req.body;
 
     if (
       !Array.isArray(questionnaireResponses) ||
@@ -50,50 +68,50 @@ const submitHealthData = async (req, res) => {
     }
 
     const cleanedResponses = questionnaireResponses.map((item) => ({
+      conditionName: String(item.conditionName || "").trim(),
       question: String(item.question || "").trim(),
       answer: String(item.answer || "").trim(),
     }));
 
     const hasInvalidEntry = cleanedResponses.some(
-      (item) => !item.question || !item.answer
+      (item) => !item.conditionName || !item.question || !item.answer
     );
 
     if (hasInvalidEntry) {
       return res.status(400).json({
-        message: "Each questionnaire response must include question and answer",
+        message:
+          "Each questionnaire response must include conditionName, question and answer",
       });
     }
 
-    let user = await User.findById(userId);
+    // Group responses by conditionName
+    const grouped = {};
+    for (const item of cleanedResponses) {
+      if (!grouped[item.conditionName]) {
+        grouped[item.conditionName] = [];
+      }
 
-    if (!user) {
-      user = await User.findOne({
-        $or: [
-          { phone: userId },
-          { phoneNumber: userId },
-          { alternativePhoneNumber: userId },
-        ],
+      grouped[item.conditionName].push({
+        question: item.question,
+        answer: item.answer,
       });
     }
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
+    // Upsert each condition into user.healthConditions
+    for (const [conditionName, responses] of Object.entries(grouped)) {
+      const existingConditionIndex = user.healthConditions.findIndex(
+        (condition) => condition.conditionName === conditionName
+      );
 
-    const existingConditionIndex = user.healthConditions.findIndex(
-      (condition) => condition.conditionName === selectedCondition
-    );
-
-    if (existingConditionIndex >= 0) {
-      user.healthConditions[existingConditionIndex].questionnaireResponses =
-        cleanedResponses;
-    } else {
-      user.healthConditions.push({
-        conditionName: selectedCondition,
-        questionnaireResponses: cleanedResponses,
-      });
+      if (existingConditionIndex >= 0) {
+        user.healthConditions[existingConditionIndex].questionnaireResponses =
+          responses;
+      } else {
+        user.healthConditions.push({
+          conditionName,
+          questionnaireResponses: responses,
+        });
+      }
     }
 
     await user.save();
@@ -101,7 +119,6 @@ const submitHealthData = async (req, res) => {
     return res.status(200).json({
       message: "Health data submitted successfully",
       userId: user._id,
-      selectedCondition,
       healthConditions: user.healthConditions,
     });
   } catch (error) {
@@ -115,43 +132,21 @@ const submitHealthData = async (req, res) => {
 
 const getHealthData = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization || "";
+    let user;
 
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        message: "Authorization token missing or invalid",
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      user = await getUserFromToken(req);
     } catch (err) {
-      return res.status(401).json({
-        message: "Invalid or expired token",
-      });
-    }
+      const msg = err.message || "Unauthorized";
+      const code =
+          msg === "User not found"
+              ? 404
+              : msg === "Authorization token missing or invalid" ||
+                msg === "Invalid or expired token"
+              ? 401
+              : 400;
 
-    const userId = String(decoded.phone || "").trim();
-
-    let user = await User.findById(userId);
-
-    if (!user) {
-      user = await User.findOne({
-        $or: [
-          { phone: userId },
-          { phoneNumber: userId },
-          { alternativePhoneNumber: userId },
-        ],
-      });
-    }
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(code).json({ message: msg });
     }
 
     return res.status(200).json({
