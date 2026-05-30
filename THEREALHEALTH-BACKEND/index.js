@@ -8,7 +8,6 @@ const authRoutes = require("./routes/authRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const blogRoutes = require("./routes/blogRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const healthRoutes = require("./routes/healthRoutes");
 const path = require("path");
 
 const PORT = process.env.PORT || 3000;
@@ -23,7 +22,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/user", healthRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/admin", adminRoutes);
