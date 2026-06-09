@@ -37,7 +37,7 @@ const sendOTP = async (phone) => {
       expiresAt,
     });
 
-    await sendSMS(cleanPhone, otp);
+    await sendSMS(cleanPhone);
 
     console.log("✅ Backend-generated OTP stored in Mongo and sent for:", cleanPhone);
 
