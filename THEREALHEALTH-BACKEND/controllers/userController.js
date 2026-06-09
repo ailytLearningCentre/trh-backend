@@ -202,16 +202,32 @@ exports.deleteUserAccount = async (req, res) => {
 
 exports.getUserConsultations = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const consultations = await Consultation.find({ userId });
+    const userId = req.params.userid || req.params.userId;
 
-    if (!consultations || consultations.length === 0) {
-      return res.status(404).json({ message: "No consultations found for this user." });
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+      });
     }
 
-    res.status(200).json(consultations);
+    const appointments = await Appointment.find({ userId }).sort({
+      date: -1,
+      createdAt: -1,
+    });
+
+    if (!appointments || appointments.length === 0) {
+      return res.status(404).json({
+        message: "No consultations found for this user.",
+      });
+    }
+
+    return res.status(200).json(appointments);
   } catch (error) {
     console.error("Error fetching consultations:", error);
-    res.status(500).json({ message: "Error fetching consultations", error: error.message });
+
+    return res.status(500).json({
+      message: "Error fetching consultations",
+      error: error.message,
+    });
   }
 };

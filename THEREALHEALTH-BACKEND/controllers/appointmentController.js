@@ -1,61 +1,101 @@
-// Placeholder content for appointmentController.js
 const Appointment = require("../models/Appointment");
 const User = require("../models/User");
 
 exports.bookAppointment = async (req, res) => {
-    try {
-      const { date, timeSlot } = req.body;
-  
-      // Validate input
-      if (!date || !timeSlot) {
-        return res.status(400).json({ message: "Date and time slot are required" });
-      }
-  
-      // Get the user ID from the authenticated user's schema (req.user)
-      const userId = req.user.phone;
-  
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      // Check if the user already has an appointment for the same date and time slot
-      const existingAppointment = await Appointment.findOne({ _id: userId, date, timeSlot });
-      if (existingAppointment) {
-        return res.status(400).json({ message: "Time slot already booked" });
-      }
-  
-      // Create a new appointment
-      const newAppointment = new Appointment({
-        _id: userId, // Use the user's phone number as the appointment ID
-        userName: user.name,
-        date,
-        timeSlot,
-        status: "pending",
+  try {
+    const { date, timeSlot } = req.body;
+
+    if (!date || !timeSlot) {
+      return res.status(400).json({
+        message: "Date and time slot are required",
       });
-  
-      await newAppointment.save();
-  
-      // Add the appointment ID to the user's appointments array
-      user.appointments.push(newAppointment._id);
-      await user.save();
-  
-      res.status(201).json({ message: "Appointment booked successfully!", appointment: newAppointment });
-    } catch (error) {
-      console.error("Error booking appointment:", error.message);
-      res.status(500).json({ error: "Server error" });
     }
-  };
+
+    const userId = req.user.phone || req.user._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "User not found in token. Please login again.",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const existingSlot = await Appointment.findOne({
+      date,
+      timeSlot,
+      status: { $in: ["pending", "confirmed"] },
+    });
+
+    if (existingSlot) {
+      return res.status(400).json({
+        message: "This time slot is already booked. Please select another slot.",
+      });
+    }
+
+    const appointment = new Appointment({
+      userId,
+      userPhone: userId,
+      userName: user.name || "User",
+      date,
+      timeSlot,
+      status: "pending",
+      notes: "",
+      prescription: [],
+    });
+
+    await appointment.save();
+
+    if (Array.isArray(user.appointments)) {
+      user.appointments.push(appointment._id);
+      await user.save();
+    }
+
+    return res.status(201).json({
+      message: "Appointment booked successfully",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Error booking appointment:", error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "This time slot is already booked. Please select another slot.",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Server error while booking appointment",
+      error: error.message,
+    });
+  }
+};
 
 exports.getAppointments = async (req, res) => {
-    try {
-        console.log("Fetching all appointments...");
-        // Fetch all appointments from the database
-        const appointments = await Appointment.find();
-        res.status(200).json({ message: "Appointments fetched successfully", appointments });
-    } catch (error) {
-        console.error("Error fetching appointments:", error.message);
-        res.status(500).json({ message: "Error fetching appointments", error: error.message });
-    }
+  try {
+    const userId = req.user.phone || req.user._id;
+
+    const appointments = await Appointment.find({ userId }).sort({
+      date: -1,
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      message: "Appointments fetched successfully",
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+
+    return res.status(500).json({
+      message: "Error fetching appointments",
+      error: error.message,
+    });
+  }
 };
