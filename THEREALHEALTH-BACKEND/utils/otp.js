@@ -3,12 +3,15 @@ const OTP = require("../models/OTP");
 
 const normalizePhone = (phone) => {
   const digits = String(phone || "").replace(/\D/g, "");
+
   if (digits.length === 12 && digits.startsWith("91")) {
     return digits.slice(2);
   }
+
   if (digits.length === 10) {
     return digits;
   }
+
   return digits;
 };
 
@@ -37,9 +40,9 @@ const sendOTP = async (phone) => {
       expiresAt,
     });
 
-    await sendSMS(cleanPhone);
+    await sendSMS(cleanPhone, otp);
 
-    console.log("✅ Backend-generated OTP stored in Mongo and sent for:", cleanPhone);
+    console.log("✅ Backend-generated OTP stored in MongoDB and sent for:", cleanPhone);
 
     return otp;
   } catch (error) {
@@ -64,6 +67,7 @@ const verifyStoredOTP = async (phone, otp) => {
     await OTP.deleteMany({
       phone: { $in: [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`] },
     });
+
     return { ok: false, message: "OTP expired. Please request a new OTP." };
   }
 

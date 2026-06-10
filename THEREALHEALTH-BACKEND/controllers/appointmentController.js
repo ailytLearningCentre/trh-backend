@@ -99,3 +99,96 @@ exports.getAppointments = async (req, res) => {
     });
   }
 };
+
+exports.getAllAppointmentsForDoctor = async (req, res) => {
+  try {
+    const role = String(req.user.role || "").toLowerCase();
+
+    if (role !== "doctor" && role !== "admin") {
+      return res.status(403).json({
+        message: "Doctor or admin access required",
+      });
+    }
+
+    const appointments = await Appointment.find().sort({
+      date: -1,
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      message: "All appointments fetched successfully",
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching doctor appointments:", error);
+
+    return res.status(500).json({
+      message: "Error fetching doctor appointments",
+      error: error.message,
+    });
+  }
+};
+
+exports.updateAppointmentStatusByDoctor = async (req, res) => {
+  try {
+    const role = String(req.user.role || "").toLowerCase();
+
+    if (role !== "doctor" && role !== "admin") {
+      return res.status(403).json({
+        message: "Doctor or admin access required",
+      });
+    }
+
+    const { id } = req.params;
+    const { status, notes, prescription } = req.body;
+
+    const allowedStatuses = [
+      "pending",
+      "confirmed",
+      "completed",
+      "cancelled",
+      "canceled",
+      "rejected",
+    ];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Valid status is required",
+      });
+    }
+
+    const updateData = {
+      status,
+    };
+
+    if (typeof notes === "string") {
+      updateData.notes = notes;
+    }
+
+    if (Array.isArray(prescription)) {
+      updateData.prescription = prescription;
+    }
+
+    const appointment = await Appointment.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Appointment not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Appointment updated successfully",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Error updating appointment:", error);
+
+    return res.status(500).json({
+      message: "Error updating appointment",
+      error: error.message,
+    });
+  }
+};

@@ -1,24 +1,21 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  authenticateUser,
-  authenticateAdmin,
-} = require("../middlewares/authMiddleware");
+const { authenticateUser } = require("../middlewares/authMiddleware");
 
 const {
   bookAppointment,
   getAppointments,
+  getAllAppointmentsForDoctor,
+  updateAppointmentStatusByDoctor,
 } = require("../controllers/appointmentController");
-
-const {
-  updateAppointmentStatus,
-} = require("../controllers/adminController");
 
 router.post("/book", authenticateUser, bookAppointment);
 
 router.get("/", authenticateUser, getAppointments);
 
-router.put("/:id", authenticateAdmin, updateAppointmentStatus);
+router.get("/doctor/all", authenticateUser, getAllAppointmentsForDoctor);
+
+router.put("/doctor/:id/status", authenticateUser, updateAppointmentStatusByDoctor);
 
 module.exports = router;

@@ -6,9 +6,18 @@ const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
 const client = twilio(accountSid, authToken);
 
-const sendSMS = async (to) => {
+const sendSMS = async (to, otpCode) => {
   try {
     const cleanTo = String(to || "").replace(/\D/g, "");
+
+    if (!cleanTo || cleanTo.length !== 10) {
+      throw new Error("Invalid phone number");
+    }
+
+    if (!otpCode) {
+      throw new Error("OTP code is required");
+    }
+
     const phone = cleanTo.startsWith("91") ? `+${cleanTo}` : `+91${cleanTo}`;
 
     const verification = await client.verify.v2
@@ -16,9 +25,10 @@ const sendSMS = async (to) => {
       .verifications.create({
         to: phone,
         channel: "sms",
+        customCode: otpCode,
       });
 
-    console.log("✅ Twilio Verify OTP sent to:", phone);
+    console.log("✅ Backend-generated OTP sent via Twilio Verify to:", phone);
     return verification;
   } catch (error) {
     console.error("❌ Error sending OTP via Twilio Verify:", error.message);
