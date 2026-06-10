@@ -103,7 +103,7 @@ exports.getBookedSlots = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching booked slots:", error);
-
+/////
     return res.status(500).json({
       message: "Error fetching booked slots",
       error: error.message,
