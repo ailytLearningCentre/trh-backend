@@ -1,51 +1,68 @@
 const mongoose = require("mongoose");
 
+const prescriptionSchema = new mongoose.Schema(
+  {
+    medicineName: { type: String, default: "" },
+    dosage: { type: String, default: "" },
+    duration: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const appointmentSchema = new mongoose.Schema(
   {
-    userId: {
-      type: String,
-      required: true,
-      index: true,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
+
     userName: {
       type: String,
-      default: "User",
-    },
-    userPhone: {
-      type: String,
       required: true,
     },
+
+    userPhone: {
+      type: String,
+      default: "",
+    },
+
+    doctorName: {
+      type: String,
+      default: "",
+    },
+
     date: {
       type: String,
       required: true,
     },
+
     timeSlot: {
       type: String,
       required: true,
     },
+
     status: {
       type: String,
-      enum: ["pending", "confirmed", "completed", "cancelled", "canceled", "rejected"],
+      enum: [
+        "pending",
+        "confirmed",
+        "approved",
+        "completed",
+        "cancelled",
+        "canceled",
+        "rejected",
+      ],
       default: "pending",
     },
+
     notes: {
       type: String,
       default: "",
     },
-    prescription: {
-      type: [
-        {
-          medicineName: { type: String, default: "" },
-          dosage: { type: String, default: "" },
-          duration: { type: String, default: "" },
-        },
-      ],
-      default: [],
-    },
+
+    prescription: [prescriptionSchema],
   },
   { timestamps: true }
 );
-
-appointmentSchema.index({ date: 1, timeSlot: 1 }, { unique: true });
 
 module.exports = mongoose.model("Appointment", appointmentSchema);
