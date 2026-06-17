@@ -12,8 +12,8 @@ const prescriptionSchema = new mongoose.Schema(
 const appointmentSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
+      default: "",
     },
 
     userName: {

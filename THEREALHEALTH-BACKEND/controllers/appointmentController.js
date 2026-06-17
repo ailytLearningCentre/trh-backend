@@ -4,21 +4,32 @@ const User = require("../models/User");
 
 const BLOCKED_STATUSES = ["pending", "confirmed", "approved", "completed"];
 
-function getUserIdFromRequest(req) {
-  return req.user?._id || req.user?.id || req.user?.phone;
+function getUserIdentityFromRequest(req) {
+  return (
+    req.user?.phone ||
+    req.user?._id?.toString() ||
+    req.user?.id?.toString() ||
+    ""
+  );
 }
 
 async function findUserFromRequest(req) {
-  const userId = getUserIdFromRequest(req);
+  const identity = getUserIdentityFromRequest(req);
 
-  if (!userId) return null;
+  if (!identity) return null;
 
   let user = null;
 
-  try {
-    user = await User.findById(userId);
-  } catch (_) {
-    user = null;
+  if (/^[0-9a-fA-F]{24}$/.test(identity)) {
+    try {
+      user = await User.findById(identity);
+    } catch (_) {
+      user = null;
+    }
+  }
+
+  if (!user) {
+    user = await User.findOne({ phone: identity });
   }
 
   if (!user && req.user?.phone) {
@@ -46,6 +57,9 @@ exports.bookAppointment = async (req, res) => {
       });
     }
 
+    const userIdentity =
+      user.phone || user._id?.toString() || req.user?.phone || "";
+
     const existingAppointment = await Appointment.findOne({
       date,
       timeSlot,
@@ -59,7 +73,7 @@ exports.bookAppointment = async (req, res) => {
     }
 
     const newAppointment = new Appointment({
-      user: user._id,
+      user: userIdentity,
       userName: user.name || user.fullName || "User",
       userPhone: user.phone || req.user?.phone || "",
       date,
@@ -71,9 +85,13 @@ exports.bookAppointment = async (req, res) => {
 
     await newAppointment.save();
 
-    if (Array.isArray(user.appointments)) {
-      user.appointments.push(newAppointment._id);
-      await user.save();
+    try {
+      if (Array.isArray(user.appointments)) {
+        user.appointments.push(newAppointment._id);
+        await user.save();
+      }
+    } catch (userSaveError) {
+      console.log("User appointment reference not saved:", userSaveError.message);
     }
 
     return res.status(201).json({
@@ -130,11 +148,11 @@ exports.getAppointments = async (req, res) => {
       });
     }
 
+    const userIdentity =
+      user.phone || user._id?.toString() || req.user?.phone || "";
+
     const appointments = await Appointment.find({
-      $or: [
-        { user: user._id },
-        { userPhone: user.phone },
-      ],
+      $or: [{ user: userIdentity }, { userPhone: user.phone }],
     }).sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
@@ -186,9 +204,7 @@ exports.updateDoctorAppointmentStatus = async (req, res) => {
       });
     }
 
-    const allowedDoctorStatuses = ["completed"];
-
-    if (!allowedDoctorStatuses.includes(status)) {
+    if (status !== "completed") {
       return res.status(403).json({
         message: "Doctor can only mark appointment as completed",
       });
@@ -202,7 +218,7 @@ exports.updateDoctorAppointmentStatus = async (req, res) => {
       });
     }
 
-    appointment.status = status;
+    appointment.status = "completed";
 
     if (typeof notes === "string") {
       appointment.notes = notes;
@@ -218,7 +234,7 @@ exports.updateDoctorAppointmentStatus = async (req, res) => {
       { appointment: appointment._id },
       {
         appointment: appointment._id,
-        user: appointment.user,
+        user: appointment.user || appointment.userPhone || "",
         userName: appointment.userName,
         userPhone: appointment.userPhone,
         doctorName: appointment.doctorName || "Doctor",
