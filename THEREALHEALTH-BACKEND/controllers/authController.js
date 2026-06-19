@@ -21,7 +21,7 @@ const buildPhoneVariants = (phone) => {
 };
 
 const getHardcodedRole = (phone) => {
-  const clean = normalizePhone(phone);
+  const clean = normalizePhone(phone);``
   return HARDCODED_ROLES[clean] || null;
 };
 
