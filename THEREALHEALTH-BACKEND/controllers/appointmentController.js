@@ -47,6 +47,24 @@ exports.bookAppointment = async (req, res) => {
         message: "Time slot already booked",
       });
     }
+    const cancelledAppointment = await Appointment.findOne({
+  date,
+  timeSlot,
+  status: "cancelled",
+});
+
+if (cancelledAppointment) {
+  cancelledAppointment.status = "pending";
+  cancelledAppointment.userId = userId;
+  cancelledAppointment.userName = user.name || user.fullName || user.phone || userId;
+
+  await cancelledAppointment.save();
+
+  return res.status(200).json({
+    message: "Appointment booked successfully!",
+    appointment: cancelledAppointment,
+  });
+}
 
     const newAppointment = new Appointment({
       userId,
