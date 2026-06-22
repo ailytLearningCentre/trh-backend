@@ -1,61 +1,188 @@
-// Placeholder content for appointmentController.js
 const Appointment = require("../models/Appointment");
 const User = require("../models/User");
 
 exports.bookAppointment = async (req, res) => {
-    try {
-      const { date, timeSlot } = req.body;
-  
-      // Validate input
-      if (!date || !timeSlot) {
-        return res.status(400).json({ message: "Date and time slot are required" });
-      }
-  
-      // Get the user ID from the authenticated user's schema (req.user)
-      const userId = req.user.phone;
-  
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      // Check if the user already has an appointment for the same date and time slot
-      const existingAppointment = await Appointment.findOne({ _id: userId, date, timeSlot });
-      if (existingAppointment) {
-        return res.status(400).json({ message: "Time slot already booked" });
-      }
-  
-      // Create a new appointment
-      const newAppointment = new Appointment({
-        _id: userId, // Use the user's phone number as the appointment ID
-        userName: user.name,
-        date,
-        timeSlot,
-        status: "pending",
+  try {
+    const { date, timeSlot } = req.body;
+
+    console.log("📥 Book request:", {
+      date,
+      timeSlot,
+      user: req.user,
+    });
+
+    if (!date || !timeSlot) {
+      return res.status(400).json({
+        message: "Date and time slot are required",
       });
-  
-      await newAppointment.save();
-  
-      // Add the appointment ID to the user's appointments array
+    }
+
+    const userId = req.user.phone || req.user._id || req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Invalid token. User id not found.",
+      });
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { _id: userId },
+        { phone: userId },
+        { mobile: userId },
+        { phoneNumber: userId },
+      ],
+    });
+
+    if (!user) {
+      console.log("❌ User not found for:", userId);
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const existingAppointment = await Appointment.findOne({
+      date: date,
+      timeSlot: timeSlot,
+      status: { $ne: "cancelled" },
+    });
+
+    if (existingAppointment) {
+      console.log("⚠️ Slot already booked:", date, timeSlot);
+      return res.status(400).json({
+        message: "Time slot already booked",
+      });
+    }
+
+    const newAppointment = new Appointment({
+      userId: userId,
+      userName: user.name || user.fullName || user.phone || userId,
+      date: date,
+      timeSlot: timeSlot,
+      status: "pending",
+    });
+
+    await newAppointment.save();
+
+    console.log("✅ Appointment booked successfully:", newAppointment);
+
+    if (Array.isArray(user.appointments)) {
       user.appointments.push(newAppointment._id);
       await user.save();
-  
-      res.status(201).json({ message: "Appointment booked successfully!", appointment: newAppointment });
-    } catch (error) {
-      console.error("Error booking appointment:", error.message);
-      res.status(500).json({ error: "Server error" });
     }
-  };
+
+    return res.status(201).json({
+      message: "Appointment booked successfully!",
+      appointment: newAppointment,
+    });
+  } catch (error) {
+    console.error("❌ Error booking appointment:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getBookedSlots = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    console.log("📅 getBookedSlots called for date:", date);
+
+    if (!date) {
+      return res.status(400).json({
+        message: "Date is required",
+      });
+    }
+
+    const appointments = await Appointment.find({
+      date: date,
+      status: { $ne: "cancelled" },
+    });
+
+    const bookedSlots = appointments.map((appointment) => appointment.timeSlot);
+
+    console.log("✅ Booked slots:", bookedSlots);
+
+    return res.status(200).json({
+      bookedSlots,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching booked slots:", error);
+    return res.status(500).json({
+      message: "Error fetching booked slots",
+      error: error.message,
+    });
+  }
+};
+
+exports.cancelAppointment = async (req, res) => {
+  try {
+    const { date, timeSlot } = req.body;
+    const userId = req.user.phone || req.user._id || req.user.id;
+
+    console.log("🗑 Cancel request:", {
+      date,
+      timeSlot,
+      userId,
+    });
+
+    if (!date || !timeSlot) {
+      return res.status(400).json({
+        message: "Date and time slot are required",
+      });
+    }
+
+    const appointment = await Appointment.findOneAndUpdate(
+      {
+        date: date,
+        timeSlot: timeSlot,
+        userId: userId,
+        status: { $ne: "cancelled" },
+      },
+      {
+        status: "cancelled",
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Appointment not found",
+      });
+    }
+
+    console.log("✅ Appointment cancelled:", appointment);
+
+    return res.status(200).json({
+      message: "Appointment cancelled successfully",
+      appointment,
+    });
+  } catch (error) {
+    console.error("❌ Error cancelling appointment:", error);
+    return res.status(500).json({
+      message: "Error cancelling appointment",
+      error: error.message,
+    });
+  }
+};
 
 exports.getAppointments = async (req, res) => {
-    try {
-        console.log("Fetching all appointments...");
-        // Fetch all appointments from the database
-        const appointments = await Appointment.find();
-        res.status(200).json({ message: "Appointments fetched successfully", appointments });
-    } catch (error) {
-        console.error("Error fetching appointments:", error.message);
-        res.status(500).json({ message: "Error fetching appointments", error: error.message });
-    }
+  try {
+    const appointments = await Appointment.find();
+
+    return res.status(200).json({
+      message: "Appointments fetched successfully",
+      appointments,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching appointments:", error);
+    return res.status(500).json({
+      message: "Error fetching appointments",
+      error: error.message,
+    });
+  }
 };
