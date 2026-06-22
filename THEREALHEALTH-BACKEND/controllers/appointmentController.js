@@ -120,12 +120,11 @@ exports.getBookedSlots = async (req, res) => {
 exports.cancelAppointment = async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
-    const userId = req.user.phone || req.user._id || req.user.id;
 
     console.log("🗑 Cancel request:", {
       date,
       timeSlot,
-      userId,
+      user: req.user,
     });
 
     if (!date || !timeSlot) {
@@ -138,7 +137,6 @@ exports.cancelAppointment = async (req, res) => {
       {
         date: date,
         timeSlot: timeSlot,
-        userId: userId,
         status: { $ne: "cancelled" },
       },
       {
@@ -150,6 +148,7 @@ exports.cancelAppointment = async (req, res) => {
     );
 
     if (!appointment) {
+      console.log("❌ Appointment not found for cancel:", date, timeSlot);
       return res.status(404).json({
         message: "Appointment not found",
       });
