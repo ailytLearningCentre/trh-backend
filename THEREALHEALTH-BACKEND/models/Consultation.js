@@ -19,8 +19,8 @@ const consultationSchema = new mongoose.Schema(
     },
 
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
+      default: "",
     },
 
     userName: {
