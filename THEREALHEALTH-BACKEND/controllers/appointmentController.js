@@ -5,11 +5,7 @@ exports.bookAppointment = async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
 
-    console.log("📥 Book request:", {
-      date,
-      timeSlot,
-      user: req.user,
-    });
+    console.log("📥 Book request:", { date, timeSlot, user: req.user });
 
     if (!date || !timeSlot) {
       return res.status(400).json({
@@ -36,14 +32,12 @@ exports.bookAppointment = async (req, res) => {
 
     if (!user) {
       console.log("❌ User not found for:", userId);
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     const existingAppointment = await Appointment.findOne({
-      date: date,
-      timeSlot: timeSlot,
+      date,
+      timeSlot,
       status: { $ne: "cancelled" },
     });
 
@@ -55,10 +49,10 @@ exports.bookAppointment = async (req, res) => {
     }
 
     const newAppointment = new Appointment({
-      userId: userId,
+      userId,
       userName: user.name || user.fullName || user.phone || userId,
-      date: date,
-      timeSlot: timeSlot,
+      date,
+      timeSlot,
       status: "pending",
     });
 
@@ -66,16 +60,18 @@ exports.bookAppointment = async (req, res) => {
 
     console.log("✅ Appointment booked successfully:", newAppointment);
 
-    if (Array.isArray(user.appointments)) {
-      user.appointments.push(newAppointment._id);
-      await user.save();
-    }
-
     return res.status(201).json({
       message: "Appointment booked successfully!",
       appointment: newAppointment,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      console.log("⚠️ Duplicate slot blocked by MongoDB index");
+      return res.status(400).json({
+        message: "Time slot already booked",
+      });
+    }
+
     console.error("❌ Error booking appointment:", error);
     return res.status(500).json({
       message: "Server error",
@@ -97,7 +93,7 @@ exports.getBookedSlots = async (req, res) => {
     }
 
     const appointments = await Appointment.find({
-      date: date,
+      date,
       status: { $ne: "cancelled" },
     });
 
@@ -105,9 +101,7 @@ exports.getBookedSlots = async (req, res) => {
 
     console.log("✅ Booked slots:", bookedSlots);
 
-    return res.status(200).json({
-      bookedSlots,
-    });
+    return res.status(200).json({ bookedSlots });
   } catch (error) {
     console.error("❌ Error fetching booked slots:", error);
     return res.status(500).json({
@@ -121,11 +115,7 @@ exports.cancelAppointment = async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
 
-    console.log("🗑 Cancel request:", {
-      date,
-      timeSlot,
-      user: req.user,
-    });
+    console.log("🗑 Cancel request:", { date, timeSlot, user: req.user });
 
     if (!date || !timeSlot) {
       return res.status(400).json({
@@ -135,16 +125,12 @@ exports.cancelAppointment = async (req, res) => {
 
     const appointment = await Appointment.findOneAndUpdate(
       {
-        date: date,
-        timeSlot: timeSlot,
+        date,
+        timeSlot,
         status: { $ne: "cancelled" },
       },
-      {
-        status: "cancelled",
-      },
-      {
-        new: true,
-      }
+      { status: "cancelled" },
+      { new: true }
     );
 
     if (!appointment) {
