@@ -4,39 +4,14 @@ const User = require("../models/User");
 
 const BLOCKED_STATUSES = ["pending", "confirmed", "approved", "completed"];
 
-function getUserIdentityFromRequest(req) {
-  return (
-    req.user?.phone ||
-    req.user?._id?.toString() ||
-    req.user?.id?.toString() ||
-    ""
-  );
-}
-
 async function findUserFromRequest(req) {
-  const identity = getUserIdentityFromRequest(req);
+  const phone = req.user?.phone;
 
-  if (!identity) return null;
-
-  let user = null;
-
-  if (/^[0-9a-fA-F]{24}$/.test(identity)) {
-    try {
-      user = await User.findById(identity);
-    } catch (_) {
-      user = null;
-    }
+  if (!phone) {
+    return null;
   }
 
-  if (!user) {
-    user = await User.findOne({ phone: identity });
-  }
-
-  if (!user && req.user?.phone) {
-    user = await User.findOne({ phone: req.user.phone });
-  }
-
-  return user;
+  return await User.findById(phone);
 }
 
 exports.bookAppointment = async (req, res) => {
@@ -57,9 +32,6 @@ exports.bookAppointment = async (req, res) => {
       });
     }
 
-    const userIdentity =
-      user.phone || user._id?.toString() || req.user?.phone || "";
-
     const existingAppointment = await Appointment.findOne({
       date,
       timeSlot,
@@ -73,9 +45,9 @@ exports.bookAppointment = async (req, res) => {
     }
 
     const newAppointment = new Appointment({
-      user: userIdentity,
+      user: user._id,
       userName: user.name || user.fullName || "User",
-      userPhone: user.phone || req.user?.phone || "",
+      userPhone: user._id,
       date,
       timeSlot,
       status: "pending",
@@ -87,11 +59,14 @@ exports.bookAppointment = async (req, res) => {
 
     try {
       if (Array.isArray(user.appointments)) {
-        user.appointments.push(newAppointment._id);
+        user.appointments.push(newAppointment._id.toString());
         await user.save();
       }
     } catch (userSaveError) {
-      console.log("User appointment reference not saved:", userSaveError.message);
+      console.log(
+        "User appointment reference not saved:",
+        userSaveError.message
+      );
     }
 
     return res.status(201).json({
@@ -148,11 +123,8 @@ exports.getAppointments = async (req, res) => {
       });
     }
 
-    const userIdentity =
-      user.phone || user._id?.toString() || req.user?.phone || "";
-
     const appointments = await Appointment.find({
-      $or: [{ user: userIdentity }, { userPhone: user.phone }],
+      user: user._id,
     }).sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
