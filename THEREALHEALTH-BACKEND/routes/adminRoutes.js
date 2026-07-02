@@ -14,22 +14,36 @@ const {
   getUserAppointments,
   getUserHealthConditions,
   updateAppointmentStatus,
+  getAllDoctors,
 } = require("../controllers/adminController");
 
-// User management
+// ===============================
+// USER MODULE
+// ===============================
 router.get("/users", authenticateAdmin, getAllUsers);
 router.post("/users", authenticateAdmin, createUser);
 router.get("/users/:id", authenticateAdmin, getUserById);
 router.put("/users/:id", authenticateAdmin, updateUser);
 router.delete("/users/:id", authenticateAdmin, deleteUser);
+
 router.get("/users/:id/appointments", authenticateAdmin, getUserAppointments);
 router.get("/users/:id/health-conditions", authenticateAdmin, getUserHealthConditions);
 
-// Appointment management
+// ===============================
+// DOCTOR MODULE
+// ===============================
+router.get("/doctors", authenticateAdmin, getAllDoctors);
+
+// ===============================
+// APPOINTMENT MODULE
+// ===============================
 router.get("/appointments", authenticateAdmin, getAllAppointments);
+router.put("/appointments/:id/status", authenticateAdmin, updateAppointmentStatus);
 router.put("/appointments/:id", authenticateAdmin, updateAppointmentStatus);
 
-// Dashboard stats
+// ===============================
+// STATS MODULE
+// ===============================
 router.get("/stats", authenticateAdmin, getStats);
 
 module.exports = router;
