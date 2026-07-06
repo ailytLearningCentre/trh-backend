@@ -11,20 +11,29 @@ const {
   getAppointments,
   getBookedSlots,
   cancelAppointment,
+  getDoctorAppointments,
+  updateDoctorAppointmentStatus,
 } = require("../controllers/appointmentController");
 
 const {
   updateAppointmentStatus,
 } = require("../controllers/adminController");
 
-router.get("/booked-slots", authenticateUser, getBookedSlots);
-
+// User appointment routes
 router.post("/book", authenticateUser, bookAppointment);
-
 router.post("/cancel", authenticateUser, cancelAppointment);
-
-router.put("/:id", authenticateAdmin, updateAppointmentStatus);
-
+router.get("/booked-slots", authenticateUser, getBookedSlots);
 router.get("/", authenticateUser, getAppointments);
+
+// Doctor appointment routes
+router.get("/doctor/all", authenticateUser, getDoctorAppointments);
+router.put(
+  "/doctor/:appointmentId/status",
+  authenticateUser,
+  updateDoctorAppointmentStatus
+);
+
+// Admin route
+router.put("/:id", authenticateAdmin, updateAppointmentStatus);
 
 module.exports = router;

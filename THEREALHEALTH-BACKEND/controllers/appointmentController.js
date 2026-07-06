@@ -1,15 +1,31 @@
 const Appointment = require("../models/Appointment");
+const Consultation = require("../models/Consultation");
 const User = require("../models/User");
+
+const BLOCKED_STATUSES = ["pending", "confirmed", "approved", "completed"];
 
 const getTokenUserId = (req) => {
   return req.user?.phone || req.user?._id || req.user?.id;
 };
 
+async function findUserFromRequest(req) {
+  const userId = getTokenUserId(req);
+
+  if (!userId) return null;
+
+  return await User.findOne({
+    $or: [
+      { _id: userId },
+      { phone: userId },
+      { mobile: userId },
+      { phoneNumber: userId },
+    ],
+  });
+}
+
 exports.bookAppointment = async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
-
-    console.log("Book request:", { date, timeSlot, user: req.user });
 
     if (!date || !timeSlot) {
       return res.status(400).json({
@@ -17,34 +33,18 @@ exports.bookAppointment = async (req, res) => {
       });
     }
 
-    const userId = getTokenUserId(req);
+    const user = await findUserFromRequest(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        message: "Invalid token. User id not found.",
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
 
-    const user = await User.findOne({
-      $or: [
-        { _id: userId },
-        { phone: userId },
-        { mobile: userId },
-        { phoneNumber: userId },
-      ],
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Universal slot lock:
-    // If any user has pending/confirmed appointment on same date + slot,
-    // block this slot for everyone.
     const existingAppointment = await Appointment.findOne({
       date,
       timeSlot,
-      status: { $in: ["pending", "confirmed"] },
+      status: { $in: BLOCKED_STATUSES },
     });
 
     if (existingAppointment) {
@@ -53,29 +53,9 @@ exports.bookAppointment = async (req, res) => {
       });
     }
 
-    const cancelledAppointment = await Appointment.findOne({
-      date,
-      timeSlot,
-      status: "cancelled",
-    });
-
-    if (cancelledAppointment) {
-      cancelledAppointment.status = "pending";
-      cancelledAppointment.userId = userId;
-      cancelledAppointment.userName =
-        user.name || user.fullName || user.phone || userId;
-
-      await cancelledAppointment.save();
-
-      return res.status(200).json({
-        message: "Appointment booked successfully!",
-        appointment: cancelledAppointment,
-      });
-    }
-
     const newAppointment = new Appointment({
-      userId,
-      userName: user.name || user.fullName || user.phone || userId,
+      userId: user._id.toString(),
+      userName: user.name || user.fullName || user.phone || "User",
       date,
       timeSlot,
       status: "pending",
@@ -88,16 +68,10 @@ exports.bookAppointment = async (req, res) => {
       appointment: newAppointment,
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Time slot already booked",
-      });
-    }
-
-    console.error("Error booking appointment:", error);
+    console.error("Error booking appointment:", error.message);
 
     return res.status(500).json({
-      message: "Server error",
+      message: "Server error while booking appointment",
       error: error.message,
     });
   }
@@ -107,26 +81,26 @@ exports.getBookedSlots = async (req, res) => {
   try {
     const { date } = req.query;
 
-    console.log("getBookedSlots called for date:", date);
-
     if (!date) {
       return res.status(400).json({
         message: "Date is required",
       });
     }
 
-    // Universal booked slots:
-    // All pending/confirmed slots are unavailable for every user.
     const appointments = await Appointment.find({
       date,
-      status: { $in: ["pending", "confirmed"] },
-    });
+      status: { $in: BLOCKED_STATUSES },
+    }).select("timeSlot status date");
 
     const bookedSlots = appointments.map((appointment) => appointment.timeSlot);
 
-    return res.status(200).json({ bookedSlots });
+    return res.status(200).json({
+      message: "Booked slots fetched successfully",
+      bookedSlots,
+      appointments,
+    });
   } catch (error) {
-    console.error("Error fetching booked slots:", error);
+    console.error("Error fetching booked slots:", error.message);
 
     return res.status(500).json({
       message: "Error fetching booked slots",
@@ -139,29 +113,26 @@ exports.cancelAppointment = async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
 
-    console.log("Cancel request:", { date, timeSlot, user: req.user });
-
     if (!date || !timeSlot) {
       return res.status(400).json({
         message: "Date and time slot are required",
       });
     }
 
-    const userId = getTokenUserId(req);
+    const user = await findUserFromRequest(req);
 
-    if (!userId) {
-      return res.status(401).json({
-        message: "Invalid token. User id not found.",
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
 
-    // Only the user who booked this appointment can cancel it.
     const appointment = await Appointment.findOneAndUpdate(
       {
         date,
         timeSlot,
-        userId,
-        status: { $in: ["pending", "confirmed"] },
+        userId: user._id.toString(),
+        status: { $in: BLOCKED_STATUSES },
       },
       { status: "cancelled" },
       { new: true }
@@ -178,7 +149,7 @@ exports.cancelAppointment = async (req, res) => {
       appointment,
     });
   } catch (error) {
-    console.error("Error cancelling appointment:", error);
+    console.error("Error cancelling appointment:", error.message);
 
     return res.status(500).json({
       message: "Error cancelling appointment",
@@ -189,17 +160,119 @@ exports.cancelAppointment = async (req, res) => {
 
 exports.getAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find();
+    const user = await findUserFromRequest(req);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const appointments = await Appointment.find({
+      userId: user._id.toString(),
+    }).sort({ date: -1, createdAt: -1 });
 
     return res.status(200).json({
       message: "Appointments fetched successfully",
       appointments,
     });
   } catch (error) {
-    console.error("Error fetching appointments:", error);
+    console.error("Error fetching appointments:", error.message);
 
     return res.status(500).json({
       message: "Error fetching appointments",
+      error: error.message,
+    });
+  }
+};
+
+exports.getDoctorAppointments = async (req, res) => {
+  try {
+    const appointments = await Appointment.find({
+      status: { $in: ["confirmed", "approved", "completed"] },
+    }).sort({ date: 1, createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Doctor appointments fetched successfully",
+      appointments,
+    });
+  } catch (error) {
+    console.error("Error fetching doctor appointments:", error.message);
+
+    return res.status(500).json({
+      message: "Error fetching doctor appointments",
+      error: error.message,
+    });
+  }
+};
+
+exports.updateDoctorAppointmentStatus = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { status, notes, prescription } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        message: "Appointment ID is required",
+      });
+    }
+
+    if (status !== "completed") {
+      return res.status(403).json({
+        message: "Doctor can only mark appointment as completed",
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Appointment not found",
+      });
+    }
+
+    appointment.status = "completed";
+
+    if (typeof notes === "string") {
+      appointment.notes = notes;
+    }
+
+    if (Array.isArray(prescription)) {
+      appointment.prescription = prescription;
+    }
+
+    await appointment.save();
+
+    await Consultation.findOneAndUpdate(
+      { appointment: appointment._id },
+      {
+        appointment: appointment._id,
+        user: appointment.userId || "",
+        userName: appointment.userName,
+        userPhone: appointment.userPhone || appointment.userId || "",
+        doctorName: appointment.doctorName || "Doctor",
+        date: appointment.date,
+        timeSlot: appointment.timeSlot,
+        status: appointment.status,
+        notes: appointment.notes || "No doctor notes added.",
+        prescription: appointment.prescription || [],
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    return res.status(200).json({
+      message: "Appointment marked as completed",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Error updating doctor appointment:", error.message);
+
+    return res.status(500).json({
+      message: "Error updating appointment",
       error: error.message,
     });
   }
