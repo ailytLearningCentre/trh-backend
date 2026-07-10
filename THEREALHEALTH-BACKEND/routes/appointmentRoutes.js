@@ -23,10 +23,16 @@ const {
 router.post("/book", authenticateUser, bookAppointment);
 router.post("/cancel", authenticateUser, cancelAppointment);
 router.get("/booked-slots", authenticateUser, getBookedSlots);
+
+// Consultation screen will call this route
+router.get("/my", authenticateUser, getAppointments);
+
+// Keep existing route
 router.get("/", authenticateUser, getAppointments);
 
 // Doctor appointment routes
 router.get("/doctor/all", authenticateUser, getDoctorAppointments);
+
 router.put(
   "/doctor/:appointmentId/status",
   authenticateUser,
