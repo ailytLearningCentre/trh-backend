@@ -1,7 +1,8 @@
-// Placeholder content for adminRoutes.js
 const express = require("express");
 const router = express.Router();
+
 const { authenticateAdmin } = require("../middlewares/authMiddleware");
+
 const {
   getAllUsers,
   getAllAppointments,
@@ -12,20 +13,57 @@ const {
   deleteUser,
   getUserAppointments,
   getUserHealthConditions,
-  updateAppointmentStatus
+  updateAppointmentStatus,
+  getAllDoctors,
 } = require("../controllers/adminController");
 
+// ===============================
+// USER MODULE
+// ===============================
 router.get("/users", authenticateAdmin, getAllUsers);
 router.post("/users", authenticateAdmin, createUser);
 router.get("/users/:id", authenticateAdmin, getUserById);
 router.put("/users/:id", authenticateAdmin, updateUser);
-router.delete("/admin/users/:id", authenticateAdmin, deleteUser);
-router.get("/users/:id/appointments", authenticateAdmin, getUserAppointments);
-router.get("/users/:id/health-conditions", authenticateAdmin, getUserHealthConditions);
+router.delete("/users/:id", authenticateAdmin, deleteUser);
 
+router.get(
+  "/users/:id/appointments",
+  authenticateAdmin,
+  getUserAppointments
+);
+
+router.get(
+  "/users/:id/health-conditions",
+  authenticateAdmin,
+  getUserHealthConditions
+);
+
+// ===============================
+// DOCTOR MODULE
+// ===============================
+router.get("/doctors", authenticateAdmin, getAllDoctors);
+
+// ===============================
+// APPOINTMENT MODULE
+// ===============================
 router.get("/appointments", authenticateAdmin, getAllAppointments);
+
+router.put(
+  "/appointments/:id/status",
+  authenticateAdmin,
+  updateAppointmentStatus
+);
+
+// Keep for compatibility with existing frontend calls
+router.put(
+  "/appointments/:id",
+  authenticateAdmin,
+  updateAppointmentStatus
+);
+
+// ===============================
+// STATS MODULE
+// ===============================
 router.get("/stats", authenticateAdmin, getStats);
-router.put("/appointments/status", authenticateAdmin, updateAppointmentStatus);
-router.put("/appointments/:id", authenticateAdmin, updateAppointmentStatus);
 
 module.exports = router;
