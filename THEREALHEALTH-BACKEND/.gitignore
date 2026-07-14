@@ -1,3 +1,13 @@
-// Placeholder content for .gitignore
+# Environment files
+.env
+config/.env
 
-.env 
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads/build clutter
+.DS_Store
