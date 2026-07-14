@@ -9,7 +9,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 // ========================================
 const HARDCODED_ROLES = {
   "8392935164": "user",
-  "7668514566": "user",
+  "6398911153": "doctor",
+  "7668514566": "admin",
 };
 
 // ========================================
@@ -21,15 +22,20 @@ const buildPhoneVariants = (phone) => {
 };
 
 const getHardcodedRole = (phone) => {
-  const clean = normalizePhone(phone);``
+  const clean = normalizePhone(phone);
   return HARDCODED_ROLES[clean] || null;
 };
 
 const createToken = ({ phone, role }) => {
   return jwt.sign(
-    { phone, role },
+    {
+      phone,
+      role,
+    },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    {
+      expiresIn: "7d",
+    }
   );
 };
 
@@ -53,6 +59,7 @@ const sendOtp = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error sending OTP:", error.message);
+
     return res.status(500).json({
       message: "Error sending OTP",
       error: error.message,
@@ -106,7 +113,14 @@ const verifyOtp = async (req, res) => {
       }
     }
 
-    const token = createToken({ phone, role });
+    if (!["user", "doctor", "admin"].includes(role)) {
+      role = "user";
+    }
+
+    const token = createToken({
+      phone,
+      role,
+    });
 
     return res.status(200).json({
       message: "OTP verified successfully",
@@ -117,6 +131,7 @@ const verifyOtp = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error verifying OTP:", error.message);
+
     return res.status(500).json({
       message: "Error verifying OTP",
       error: error.message,
@@ -144,6 +159,7 @@ const resendOtp = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error resending OTP:", error.message);
+
     return res.status(500).json({
       message: "Error resending OTP",
       error: error.message,
