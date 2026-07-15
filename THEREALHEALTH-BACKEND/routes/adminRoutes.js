@@ -1,31 +1,59 @@
-// Placeholder content for adminRoutes.js
 const express = require("express");
 const router = express.Router();
 const { authenticateAdmin } = require("../middlewares/authMiddleware");
-const {
-  getAllUsers,
-  getAllAppointments,
-  getStats,
-  createUser,
-  getUserById,
-  updateUser,
-  deleteUser,
-  getUserAppointments,
-  getUserHealthConditions,
-  updateAppointmentStatus
-} = require("../controllers/adminController");
+const adminController = require("../controllers/adminController");
 
-router.get("/users", authenticateAdmin, getAllUsers);
-router.post("/users", authenticateAdmin, createUser);
-router.get("/users/:id", authenticateAdmin, getUserById);
-router.put("/users/:id", authenticateAdmin, updateUser);
-router.delete("/admin/users/:id", authenticateAdmin, deleteUser);
-router.get("/users/:id/appointments", authenticateAdmin, getUserAppointments);
-router.get("/users/:id/health-conditions", authenticateAdmin, getUserHealthConditions);
+router.get("/users", authenticateAdmin, adminController.getAllUsers);
+router.post("/users", authenticateAdmin, adminController.createUser);
+router.get("/users/:id", authenticateAdmin, adminController.getUserById);
+router.put("/users/:id", authenticateAdmin, adminController.updateUser);
+router.delete("/users/:id", authenticateAdmin, adminController.deleteUser);
+router.get(
+  "/users/:id/appointments",
+  authenticateAdmin,
+  adminController.getUserAppointments
+);
+router.get(
+  "/users/:id/health-conditions",
+  authenticateAdmin,
+  adminController.getUserHealthConditions
+);
 
-router.get("/appointments", authenticateAdmin, getAllAppointments);
-router.get("/stats", authenticateAdmin, getStats);
-router.put("/appointments/status", authenticateAdmin, updateAppointmentStatus);
-router.put("/appointments/:id", authenticateAdmin, updateAppointmentStatus);
+router.get("/appointments", authenticateAdmin, adminController.getAllAppointments);
+router.put(
+  "/appointments/:id/status",
+  authenticateAdmin,
+  adminController.updateAppointmentStatus
+);
+router.put(
+  "/appointments/:id",
+  authenticateAdmin,
+  adminController.updateAppointmentStatus
+);
+router.put(
+  "/appointments/:id/assign-doctor",
+  authenticateAdmin,
+  adminController.assignDoctor
+);
+
+router.get("/doctors", authenticateAdmin, adminController.getDoctors);
+router.get(
+  "/available-doctors",
+  authenticateAdmin,
+  adminController.getAvailableDoctors
+);
+
+router.get(
+  "/doctor-requests",
+  authenticateAdmin,
+  adminController.getDoctorRequests
+);
+router.put(
+  "/doctor-requests/:requestId",
+  authenticateAdmin,
+  adminController.resolveDoctorRequest
+);
+
+router.get("/stats", authenticateAdmin, adminController.getStats);
 
 module.exports = router;

@@ -17,37 +17,13 @@ const consultationSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-
-    user: {
-      type: String,
-      default: "",
-    },
-
-    userName: {
-      type: String,
-      default: "User",
-    },
-
-    userPhone: {
-      type: String,
-      default: "",
-    },
-
-    doctorName: {
-      type: String,
-      default: "Doctor",
-    },
-
-    date: {
-      type: String,
-      required: true,
-    },
-
-    timeSlot: {
-      type: String,
-      default: "",
-    },
-
+    user: { type: String, default: "" },
+    userName: { type: String, default: "User" },
+    userPhone: { type: String, default: "" },
+    doctorId: { type: String, default: "", index: true },
+    doctorName: { type: String, default: "Doctor" },
+    date: { type: String, required: true },
+    timeSlot: { type: String, default: "" },
     status: {
       type: String,
       enum: [
@@ -61,12 +37,7 @@ const consultationSchema = new mongoose.Schema(
       ],
       default: "pending",
     },
-
-    notes: {
-      type: String,
-      default: "No doctor notes added.",
-    },
-
+    notes: { type: String, default: "No doctor notes added." },
     prescription: [prescriptionSchema],
   },
   { timestamps: true }

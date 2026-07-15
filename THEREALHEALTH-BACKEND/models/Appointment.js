@@ -11,35 +11,17 @@ const prescriptionSchema = new mongoose.Schema(
 
 const appointmentSchema = new mongoose.Schema(
   {
-    userId: {
-      type: String,
-      required: true,
-    },
+    userId: { type: String, required: true, index: true },
+    userName: { type: String, required: true },
+    userPhone: { type: String, default: "" },
 
-    userName: {
-      type: String,
-      required: true,
-    },
+    doctorId: { type: String, default: "", index: true },
+    doctorName: { type: String, default: "" },
+    assignedAt: { type: Date, default: null },
+    assignedBy: { type: String, default: "" },
 
-    userPhone: {
-      type: String,
-      default: "",
-    },
-
-    doctorName: {
-      type: String,
-      default: "",
-    },
-
-    date: {
-      type: String,
-      required: true,
-    },
-
-    timeSlot: {
-      type: String,
-      required: true,
-    },
+    date: { type: String, required: true, index: true },
+    timeSlot: { type: String, required: true, index: true },
 
     status: {
       type: String,
@@ -53,16 +35,17 @@ const appointmentSchema = new mongoose.Schema(
         "rejected",
       ],
       default: "pending",
+      index: true,
     },
 
-    notes: {
-      type: String,
-      default: "",
-    },
-
+    notes: { type: String, default: "" },
     prescription: [prescriptionSchema],
+    doctorNotesSubmitted: { type: Boolean, default: false },
+    doctorNotesSubmittedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
+
+appointmentSchema.index({ date: 1, timeSlot: 1, doctorId: 1 });
 
 module.exports = mongoose.model("Appointment", appointmentSchema);

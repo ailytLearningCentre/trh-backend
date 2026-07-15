@@ -1,45 +1,27 @@
 const express = require("express");
 const router = express.Router();
-
 const {
   authenticateUser,
   authenticateAdmin,
 } = require("../middlewares/authMiddleware");
+const appointmentController = require("../controllers/appointmentController");
+const adminController = require("../controllers/adminController");
 
-const {
-  bookAppointment,
-  getAppointments,
-  getBookedSlots,
-  cancelAppointment,
-  getDoctorAppointments,
-  updateDoctorAppointmentStatus,
-} = require("../controllers/appointmentController");
+router.post("/book", authenticateUser, appointmentController.bookAppointment);
+router.post("/cancel", authenticateUser, appointmentController.cancelAppointment);
+router.get("/booked-slots", authenticateUser, appointmentController.getBookedSlots);
+router.get("/my", authenticateUser, appointmentController.getAppointments);
+router.get("/", authenticateUser, appointmentController.getAppointments);
 
-const {
-  updateAppointmentStatus,
-} = require("../controllers/adminController");
-
-// User appointment routes
-router.post("/book", authenticateUser, bookAppointment);
-router.post("/cancel", authenticateUser, cancelAppointment);
-router.get("/booked-slots", authenticateUser, getBookedSlots);
-
-// Consultation screen will call this route
-router.get("/my", authenticateUser, getAppointments);
-
-// Keep existing route
-router.get("/", authenticateUser, getAppointments);
-
-// Doctor appointment routes
-router.get("/doctor/all", authenticateUser, getDoctorAppointments);
-
-router.put(
-  "/doctor/:appointmentId/status",
+// Kept for compatibility with the existing doctor appointment screen.
+// This route is now read-only and returns only the logged-in doctor's assignments.
+router.get(
+  "/doctor/all",
   authenticateUser,
-  updateDoctorAppointmentStatus
+  appointmentController.getDoctorAppointments
 );
 
-// Admin route
-router.put("/:id", authenticateAdmin, updateAppointmentStatus);
+// Admin-only legacy route retained so the existing admin screen keeps working.
+router.put("/:id", authenticateAdmin, adminController.updateAppointmentStatus);
 
 module.exports = router;
