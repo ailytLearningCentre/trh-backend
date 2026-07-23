@@ -8,8 +8,9 @@ const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
 // HARD-CODED ROLE NUMBERS
 // ========================================
 const HARDCODED_ROLES = {
-  "8392935164": "user",
-  "7668514566": "user",
+  "8392935164": "doctor",
+  "7668514566": "admin",
+  "6398911153":"user",
 };
 
 // ========================================
