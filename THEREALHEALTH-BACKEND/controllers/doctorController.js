@@ -22,27 +22,37 @@ exports.getDashboard = async (req, res) => {
     const doctorId = doctor._id.toString();
     const today = new Date().toISOString().slice(0, 10);
 
-    const [todayAppointments, upcomingAppointments, unreadNotifications, unavailableDates] =
-      await Promise.all([
-        Appointment.countDocuments({
-          doctorId,
-          date: today,
-          status: { $in: ["confirmed", "approved"] },
-        }),
-        Appointment.find({
-          doctorId,
-          date: { $gte: today },
-          status: { $in: ["confirmed", "approved"] },
-        })
-          .sort({ date: 1, timeSlot: 1 })
-          .limit(5),
-        DoctorNotification.countDocuments({ doctorId, isRead: false }),
-        DoctorAvailability.countDocuments({
-          doctorId,
-          date: { $gte: today },
-          allDayUnavailable: true,
-        }),
-      ]);
+    const [
+      todayAppointments,
+      upcomingAppointmentsCount,
+      upcomingAppointments,
+      unreadNotifications,
+      unavailableDates,
+    ] = await Promise.all([
+      Appointment.countDocuments({
+        doctorId,
+        date: today,
+        status: { $in: ["confirmed", "approved"] },
+      }),
+      Appointment.countDocuments({
+        doctorId,
+        date: { $gte: today },
+        status: { $in: ["confirmed", "approved"] },
+      }),
+      Appointment.find({
+        doctorId,
+        date: { $gte: today },
+        status: { $in: ["confirmed", "approved"] },
+      })
+        .sort({ date: 1, timeSlot: 1 })
+        .limit(5),
+      DoctorNotification.countDocuments({ doctorId, isRead: false }),
+      DoctorAvailability.countDocuments({
+        doctorId,
+        date: { $gte: today },
+        allDayUnavailable: true,
+      }),
+    ]);
 
     return res.status(200).json({
       doctor: {
@@ -58,7 +68,7 @@ exports.getDashboard = async (req, res) => {
       },
       stats: {
         todayAppointments,
-        upcomingAppointments: upcomingAppointments.length,
+        upcomingAppointments: upcomingAppointmentsCount,
         unreadNotifications,
         unavailableDates,
       },
@@ -95,7 +105,13 @@ exports.updateProfile = async (req, res) => {
     const doctor = await getDoctor(req);
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
-    const { name, profileImage, defaultWorkingDays, defaultWorkingHours } = req.body;
+    const {
+      name,
+      profileImage,
+      defaultWorkingDays,
+      defaultWorkingHours,
+      isActive,
+    } = req.body;
 
     if (typeof name === "string" && name.trim()) doctor.name = name.trim();
     if (typeof profileImage === "string") doctor.profileImage = profileImage.trim();
@@ -105,6 +121,9 @@ exports.updateProfile = async (req, res) => {
         start: defaultWorkingHours.start || doctor.defaultWorkingHours?.start || "09:00",
         end: defaultWorkingHours.end || doctor.defaultWorkingHours?.end || "17:00",
       };
+    }
+    if (typeof isActive === "boolean") {
+      doctor.isActive = isActive;
     }
 
     await doctor.save();
@@ -302,8 +321,22 @@ exports.createRequest = async (req, res) => {
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
     const { requestType, appointmentId = null, message } = req.body;
+    const allowedRequestTypes = [
+      "reassign_appointment",
+      "reschedule_appointment",
+      "patient_no_show",
+      "schedule_conflict",
+      "leave_notification",
+      "need_patient_information",
+      "other",
+    ];
+
     if (!requestType || !message?.trim()) {
       return res.status(400).json({ message: "Request type and message are required" });
+    }
+
+    if (!allowedRequestTypes.includes(requestType)) {
+      return res.status(400).json({ message: "Invalid request type" });
     }
 
     const request = await DoctorRequest.create({
