@@ -1,0 +1,92 @@
+{
+  "version": "1",
+  "programs": [
+    {
+      "id": "diabetes",
+      "name": "Diabetes & Prediabetes",
+      "displayName": "Diabetes & Prediabetes",
+      "description": "",
+      "iconKey": "monitor_heart",
+      "active": true
+    },
+    {
+      "id": "cardiovascular",
+      "name": "Cardiovascular Diseases (Heart Diseases)",
+      "displayName": "Cardiovascular Diseases (Heart Diseases)",
+      "description": "",
+      "iconKey": "favorite",
+      "active": true
+    },
+    {
+      "id": "weight",
+      "name": "Weight Management",
+      "displayName": "Weight Management",
+      "description": "",
+      "iconKey": "fitness_center",
+      "active": true
+    },
+    {
+      "id": "female_health",
+      "name": "Female Reproductive Health Problems",
+      "displayName": "Female Reproductive Health Problems",
+      "description": "",
+      "iconKey": "female",
+      "active": true
+    },
+    {
+      "id": "stress",
+      "name": "Stress Management",
+      "displayName": "Stress Management",
+      "description": "",
+      "iconKey": "self_improvement",
+      "active": true
+    },
+    {
+      "id": "cancer_nutrition",
+      "name": "Why Do Cancer Patients Need a Nutritionist?",
+      "displayName": "Cancer Nutrition Support",
+      "description": "Nutrition support and guidance for cancer patients.",
+      "iconKey": "spa",
+      "active": true
+    }
+  ],
+  "durations": [
+    {
+      "months": 1,
+      "label": "1 Month",
+      "inrAmount": 3000,
+      "usdAmount": 45
+    },
+    {
+      "months": 3,
+      "label": "3 Months",
+      "inrAmount": 8000,
+      "usdAmount": 100
+    },
+    {
+      "months": 6,
+      "label": "6 Months",
+      "inrAmount": 14000,
+      "usdAmount": 180
+    },
+    {
+      "months": 9,
+      "label": "9 Months",
+      "inrAmount": 20000,
+      "usdAmount": 250
+    },
+    {
+      "months": 12,
+      "label": "12 Months",
+      "inrAmount": 26000,
+      "usdAmount": 320
+    }
+  ],
+  "inclusions": [
+    "Expert guidance based on your health goals."
+  ],
+  "currencies": [
+    "INR",
+    "USD"
+  ]
+}

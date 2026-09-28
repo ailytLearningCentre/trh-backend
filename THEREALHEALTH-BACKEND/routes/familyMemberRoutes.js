@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { authenticateUser } = require('../middlewares/authMiddleware');
+const c = require('../controllers/familyMemberController');
+router.use(authenticateUser);
+router.get('/', c.list);
+router.post('/', c.create);
+router.get('/:id', c.get);
+router.patch('/:id', c.update);
+router.delete('/:id', c.archive);
+module.exports = router;
