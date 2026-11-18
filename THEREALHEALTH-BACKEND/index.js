@@ -36,6 +36,7 @@ app.use('/api/wellness', (error, req, res, next) => {
   res.status(error.type === 'entity.parse.failed' ? 400 : 500).json({ success: false, message: error.type === 'entity.parse.failed' ? 'Invalid JSON request.' : 'Unable to process plan request.' });
 });
 app.use("/api/auth", authRoutes);
+app.use('/api/testimonials', require('./routes/testimonialRoutes'));
 app.use("/api/user", userRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/blogs", blogRoutes);
@@ -45,3 +46,4 @@ app.use("/api/doctor", doctorRoutes);
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
