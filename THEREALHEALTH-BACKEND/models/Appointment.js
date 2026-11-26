@@ -11,6 +11,9 @@ const prescriptionSchema = new mongoose.Schema(
 
 const appointmentSchema = new mongoose.Schema(
   {
+    familyMemberId: { type: String, default: 'self', index: true },
+    patientName: { type: String, default: '' },
+    purchaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'WellnessPurchase' },
     userId: { type: String, required: true, index: true },
     userName: { type: String, required: true },
     userPhone: { type: String, default: "" },

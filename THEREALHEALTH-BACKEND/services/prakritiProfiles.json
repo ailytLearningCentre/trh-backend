@@ -1,0 +1,59 @@
+{
+  "vata": {
+    "prakritiType": "vata",
+    "displayName": "Vata Prakriti",
+    "summary": "Your responses indicate a Vata-dominant Prakriti.",
+    "traits": [
+      "Creative",
+      "Energetic",
+      "Enthusiastic",
+      "Adaptable"
+    ],
+    "about": "People with Vata dominance typically have traits associated with air and space elements. They tend to be creative, energetic, enthusiastic and adaptable.",
+    "reflections": [
+      "Notice which daily routines help you feel settled.",
+      "Make room for quiet pauses between busy activities.",
+      "Reflect on how changes in routine affect your sense of wellbeing."
+    ],
+    "guidanceText": "Explore diet and lifestyle guidance based on your Vata Prakriti.",
+    "themeKey": "vata"
+  },
+  "pitta": {
+    "prakritiType": "pitta",
+    "displayName": "Pitta Prakriti",
+    "summary": "Your responses indicate a Pitta-dominant Prakriti.",
+    "traits": [
+      "Ambitious",
+      "Focused",
+      "Intelligent",
+      "Strong Digestion"
+    ],
+    "about": "Pitta-dominant individuals exhibit characteristics aligned with fire and water elements. They are often ambitious, focused and goal-oriented.",
+    "reflections": [
+      "Notice what helps you stay calm and balanced.",
+      "Take regular breaks and avoid overworking.",
+      "Be mindful of how frustration affects your wellbeing."
+    ],
+    "guidanceText": "Explore diet and lifestyle guidance based on your Pitta Prakriti.",
+    "themeKey": "pitta"
+  },
+  "kapha": {
+    "prakritiType": "kapha",
+    "displayName": "Kapha Prakriti",
+    "summary": "Your responses indicate a Kapha-dominant Prakriti.",
+    "traits": [
+      "Calm",
+      "Nurturing",
+      "Stable",
+      "Good Endurance"
+    ],
+    "about": "Kapha-dominant people embody traits related to earth and water elements. They are usually calm, nurturing, stable and steady.",
+    "reflections": [
+      "Stay active and keep your body moving.",
+      "Incorporate variety in your routine.",
+      "Be mindful of tendencies toward inactivity or excess routine."
+    ],
+    "guidanceText": "Explore diet and lifestyle guidance based on your Kapha Prakriti.",
+    "themeKey": "kapha"
+  }
+}

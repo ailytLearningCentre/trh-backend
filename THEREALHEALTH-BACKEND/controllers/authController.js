@@ -1,8 +1,11 @@
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const { sendOTP, normalizePhone, verifyStoredOTP } = require("../utils/otp");
 
 const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
+const GOOGLE_SERVER_CLIENT_ID = process.env.GOOGLE_SERVER_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_SERVER_CLIENT_ID);
 
 // ========================================
 // HARD-CODED ROLE NUMBERS
@@ -22,16 +25,149 @@ const buildPhoneVariants = (phone) => {
 };
 
 const getHardcodedRole = (phone) => {
-  const clean = normalizePhone(phone);``
+  const clean = normalizePhone(phone);
   return HARDCODED_ROLES[clean] || null;
 };
 
-const createToken = ({ phone, role }) => {
+const createToken = ({ phone, googleId, role }) => {
+  const payload = { role };
+
+  if (phone) payload.phone = phone;
+  if (googleId) payload.googleId = googleId;
+
   return jwt.sign(
-    { phone, role },
+    payload,
     JWT_SECRET,
     { expiresIn: "7d" }
   );
+};
+
+const createGoogleRegistrationToken = ({ googleId, email }) => {
+  return jwt.sign(
+    {
+      googleId,
+      email,
+      role: "user",
+      registrationOnly: true,
+    },
+    JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+};
+
+// ========================================
+// GOOGLE LOGIN
+// ========================================
+const googleLogin = async (req, res) => {
+  const idToken = String(req.body?.idToken || "").trim();
+
+  if (!idToken) {
+    return res.status(400).json({
+      message: "Google ID token is required",
+    });
+  }
+
+  if (!GOOGLE_SERVER_CLIENT_ID) {
+    console.error("GOOGLE_SERVER_CLIENT_ID is not configured");
+    return res.status(500).json({
+      message: "Google login is not configured",
+    });
+  }
+
+  let payload;
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_SERVER_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch (error) {
+    console.error("Invalid Google ID token:", error.message);
+    return res.status(401).json({
+      message: "Invalid Google ID token",
+    });
+  }
+
+  const googleId = String(payload?.sub || "").trim();
+  const email = String(payload?.email || "").trim().toLowerCase();
+  const name = String(payload?.name || "").trim();
+  const picture = String(payload?.picture || "").trim();
+  const emailVerified = payload?.email_verified === true;
+
+  if (!googleId || !email) {
+    return res.status(400).json({
+      message: "Verified Google account email is required",
+    });
+  }
+
+  if (!emailVerified) {
+    return res.status(401).json({
+      message: "Google account email is not verified",
+    });
+  }
+
+  try {
+    const existingUser = await User.findOne({
+      $or: [{ googleId }, { email }],
+    });
+
+    if (!existingUser) {
+      const token = createGoogleRegistrationToken({ googleId, email });
+
+      return res.status(200).json({
+        message: "Registration required",
+        token,
+        isNewUser: true,
+        requiresRegistration: true,
+        role: "user",
+        email,
+        name,
+        picture,
+        googleId,
+      });
+    }
+
+    if (existingUser.googleId && existingUser.googleId !== googleId) {
+      return res.status(409).json({
+        message: "This email is already linked to another Google account",
+      });
+    }
+
+    let userChanged = false;
+
+    if (!existingUser.googleId) {
+      existingUser.googleId = googleId;
+      userChanged = true;
+    }
+
+    if (!existingUser.email) {
+      existingUser.email = email;
+      userChanged = true;
+    }
+
+    if (userChanged) {
+      await existingUser.save();
+    }
+
+    const role = String(existingUser.role || "user").toLowerCase();
+    const phone = String(existingUser._id);
+    const token = createToken({ phone, googleId, role });
+
+    return res.status(200).json({
+      message: "Google login successful",
+      token,
+      role,
+      isNewUser: false,
+      email: existingUser.email || email,
+      name: existingUser.name || name,
+    });
+  } catch (error) {
+    console.error("Error during Google login:", error.message);
+    return res.status(500).json({
+      message: "Error signing in with Google",
+    });
+  }
 };
 
 // ========================================
@@ -156,4 +292,5 @@ module.exports = {
   sendOtp,
   verifyOtp,
   resendOtp,
+  googleLogin,
 };

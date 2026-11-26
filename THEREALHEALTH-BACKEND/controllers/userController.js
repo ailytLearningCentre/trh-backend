@@ -1,20 +1,86 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Appointment = require("../models/Appointment");
 const Consultation = require("../models/Consultation");
 
+const JWT_SECRET = process.env.JWT_SECRET || "therealhealth_jwt_secret_123";
+
 exports.submitForm = async (req, res) => {
   try {
-    const phone = req.user.phone;
+    const authenticatedUser = req.user || {};
     const { name, age, gender, weight, height, alternativePhoneNumber } = req.body;
 
-    const updatedUser = await User.findByIdAndUpdate(
-      phone,
-      { name, age, gender, weight, height: { value: height }, alternativePhoneNumber },
-      { new: true, upsert: true }
+    if (authenticatedUser.phone) {
+      const phone = authenticatedUser.phone;
+
+      const updatedUser = await User.findByIdAndUpdate(
+        phone,
+        { name, age, gender, weight, height: { value: height }, alternativePhoneNumber },
+        { new: true, upsert: true }
+      );
+
+      return res.status(201).json({ message: "Form submitted successfully!", user: updatedUser });
+    }
+
+    const isGoogleRegistration =
+      authenticatedUser.registrationOnly === true &&
+      authenticatedUser.googleId &&
+      authenticatedUser.email;
+
+    if (!isGoogleRegistration) {
+      return res.status(401).json({ message: "Valid registration token is required" });
+    }
+
+    const googleId = String(authenticatedUser.googleId).trim();
+    const email = String(authenticatedUser.email).trim().toLowerCase();
+    let user = await User.findOne({
+      $or: [{ googleId }, { email }],
+    });
+
+    if (user?.googleId && user.googleId !== googleId) {
+      return res.status(409).json({
+        message: "This email is already linked to another Google account",
+      });
+    }
+
+    const registrationFields = {
+      name,
+      age,
+      gender,
+      weight,
+      height: { value: height },
+      alternativePhoneNumber,
+      email,
+      googleId,
+    };
+
+    if (user) {
+      Object.assign(user, registrationFields);
+      await user.save();
+    } else {
+      user = await User.create({
+        _id: `google:${googleId}`,
+        ...registrationFields,
+        role: "user",
+      });
+    }
+
+    const role = String(user.role || "user").toLowerCase();
+    const token = jwt.sign(
+      { phone: String(user._id), googleId, role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
     );
 
-    res.status(201).json({ message: "Form submitted successfully!", user: updatedUser });
+    return res.status(201).json({
+      message: "Form submitted successfully!",
+      user,
+      token,
+      role,
+      isNewUser: false,
+    });
   } catch (error) {
+    console.error("submitForm error:", error);
     res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };

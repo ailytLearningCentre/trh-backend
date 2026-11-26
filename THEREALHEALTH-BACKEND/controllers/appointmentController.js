@@ -1,24 +1,14 @@
 const Appointment = require("../models/Appointment");
 const User = require("../models/User");
+const family = require('../services/familyMemberService');
+const WellnessPurchase = require('../models/WellnessPurchase');
 const DoctorAvailability = require("../models/DoctorAvailability");
 
 const BLOCKED_STATUSES = ["pending", "confirmed", "approved", "completed"];
 
 const getTokenUserId = (req) => req.user?.phone || req.user?._id || req.user?.id;
 
-async function findUserFromRequest(req) {
-  const userId = getTokenUserId(req);
-  if (!userId) return null;
-
-  return User.findOne({
-    $or: [
-      { _id: userId },
-      { phone: userId },
-      { mobile: userId },
-      { phoneNumber: userId },
-    ],
-  });
-}
+async function findUserFromRequest(req) { return family.account(req); }
 
 async function getActiveDoctors() {
   return User.find({ role: "doctor", isActive: { $ne: false } }).select(
@@ -89,6 +79,13 @@ exports.bookAppointment = async (req, res) => {
     const user = await findUserFromRequest(req);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const member = await family.resolve(user, req.body.familyMemberId);
+    const purchaseId = req.body.purchaseId;
+    if (purchaseId || req.body.reason === 'Prakriti Guidance') {
+      if (typeof purchaseId !== 'string' || !/^[a-f0-9]{24}$/i.test(purchaseId)) family.fail(400, 'A verified plan is required for this consultation.');
+      const purchase = await WellnessPurchase.findOne({ _id: purchaseId, userId: String(user._id), ...family.scope(member.id), status: 'active' });
+      if (!purchase || !purchase.activatedAt) family.fail(403, 'A verified plan for this member is required.');
+    }
     const availableDoctors = await getAvailableDoctorsForSlot(date, timeSlot);
     const unassignedBookings = await Appointment.countDocuments({
       date,
@@ -105,6 +102,7 @@ exports.bookAppointment = async (req, res) => {
 
     const duplicateForUser = await Appointment.findOne({
       userId: user._id.toString(),
+      ...family.scope(member.id),
       date,
       timeSlot,
       status: { $in: BLOCKED_STATUSES },
@@ -115,6 +113,9 @@ exports.bookAppointment = async (req, res) => {
     }
 
     const appointment = await Appointment.create({
+      familyMemberId: member.id,
+      patientName: member.fullName,
+      ...(purchaseId ? { purchaseId } : {}),
       userId: user._id.toString(),
       userName: user.name || user._id || "User",
       userPhone: user._id.toString(),
@@ -128,6 +129,7 @@ exports.bookAppointment = async (req, res) => {
       appointment,
     });
   } catch (error) {
+    if ([400, 401, 403, 404].includes(error.status)) return res.status(error.status).json({ message: error.message });
     console.error("Error booking appointment:", error);
     return res.status(500).json({
       message: "Server error while booking appointment",
@@ -141,6 +143,7 @@ exports.getBookedSlots = async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ message: "Date is required" });
 
+    if (req.query.familyMemberId !== undefined) await family.resolve(await family.account(req), req.query.familyMemberId);
     const allSlots = [
       "9:00 AM - 9:30 AM",
       "10:00 AM - 10:30 AM",
@@ -180,6 +183,7 @@ exports.getBookedSlots = async (req, res) => {
       noDoctorAvailable: bookedSlots.length === allSlots.length,
     });
   } catch (error) {
+    if ([400, 401, 403, 404].includes(error.status)) return res.status(error.status).json({ message: error.message });
     console.error("Error fetching slots:", error);
     return res.status(500).json({
       message: "Error fetching available slots",
@@ -198,11 +202,13 @@ exports.cancelAppointment = async (req, res) => {
     const user = await findUserFromRequest(req);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const member = await family.resolve(user, req.body.familyMemberId, { allowArchived: true });
     const appointment = await Appointment.findOneAndUpdate(
       {
         date,
         timeSlot,
         userId: user._id.toString(),
+        ...family.scope(member.id),
         status: { $in: BLOCKED_STATUSES },
       },
       { status: "cancelled" },
@@ -218,6 +224,7 @@ exports.cancelAppointment = async (req, res) => {
       appointment,
     });
   } catch (error) {
+    if ([400, 401, 403, 404].includes(error.status)) return res.status(error.status).json({ message: error.message });
     return res.status(500).json({
       message: "Error cancelling appointment",
       error: error.message,
@@ -230,7 +237,8 @@ exports.getAppointments = async (req, res) => {
     const user = await findUserFromRequest(req);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const appointments = await Appointment.find({ userId: user._id.toString() }).sort({
+    const member = req.query.familyMemberId === undefined ? null : await family.resolve(user, req.query.familyMemberId, { allowArchived: true });
+    const appointments = await Appointment.find({ userId: user._id.toString(), ...(member ? family.scope(member.id) : {}) }).sort({
       date: -1,
       createdAt: -1,
     });
@@ -240,6 +248,7 @@ exports.getAppointments = async (req, res) => {
       appointments,
     });
   } catch (error) {
+    if ([400, 401, 403, 404].includes(error.status)) return res.status(error.status).json({ message: error.message });
     return res.status(500).json({
       message: "Error fetching appointments",
       error: error.message,
@@ -262,6 +271,7 @@ exports.getDoctorAppointments = async (req, res) => {
       appointments,
     });
   } catch (error) {
+    if ([400, 401, 403, 404].includes(error.status)) return res.status(error.status).json({ message: error.message });
     return res.status(500).json({
       message: "Error fetching doctor appointments",
       error: error.message,

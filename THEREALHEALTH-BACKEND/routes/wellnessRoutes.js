@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { authenticateUser } = require('../middlewares/authMiddleware');
+const c = require('../controllers/wellnessController');
+router.use(authenticateUser, c.owner);
+router.get('/catalog', c.getCatalog);
+router.post('/purchases', c.create);
+router.get('/purchases', c.list);
+router.get('/purchases/:id', c.get);
+router.post('/purchases/:id/verify', c.verify);
+module.exports = router;
